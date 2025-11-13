@@ -10,34 +10,13 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         ProcessingPanel         matlab.ui.container.Panel
         ResultsPanel            matlab.ui.container.Panel
 
-        % Upload Screen Components
-        DropZonePanel           matlab.ui.container.Panel
-        DropZoneLabel           matlab.ui.control.Label
+        % Upload Screen Components (matching JuanAnalyzer)
+        TitleLabel              matlab.ui.control.Label
+        SubtitleLabel           matlab.ui.control.Label
         BrowseButton            matlab.ui.control.Button
-        FileInfoPanel           matlab.ui.container.Panel
-        FilenameLabel           matlab.ui.control.Label
-        DurationLabel           matlab.ui.control.Label
-        ChannelsLabel           matlab.ui.control.Label
-        EventsDetectedLabel     matlab.ui.control.Label
-
-        % Event Field Selection Components
-        EventFieldLabel         matlab.ui.control.Label
-        EventFieldDropdown      matlab.ui.control.DropDown
-        DetectMarkersButton     matlab.ui.control.Button
-
-        % Epoch Definition Builder Components
-        EpochBuilderLabel       matlab.ui.control.Label
-        StartMarkerLabel        matlab.ui.control.Label
-        StartMarkerDropdown     matlab.ui.control.DropDown
-        EndMarkerLabel          matlab.ui.control.Label
-        EndMarkerDropdown       matlab.ui.control.DropDown
-        EpochNameLabel          matlab.ui.control.Label
-        EpochNameField          matlab.ui.control.EditField
-        AddEpochButton          matlab.ui.control.Button
-        EpochListLabel          matlab.ui.control.Label
-        EpochListBox            matlab.ui.control.ListBox
-        RemoveEpochButton       matlab.ui.control.Button
-
+        FileInfoLabel           matlab.ui.control.Label
+        EventSelectionButton    matlab.ui.control.Button
+        EventSelectionLabel     matlab.ui.control.Label
         StartButton             matlab.ui.control.Button
 
         % Processing Screen Components
@@ -100,6 +79,8 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         ClinicalMetrics         struct
         ProcessingStages        cell
         EventInfo               struct
+        SelectedEvents          cell = {}
+        SelectedFields          cell = {}
         EventFieldInfo          struct  % Detailed info about available event fields
         EpochedData             struct
         EpochDefinitions        cell  % Cell array of structs {startMarker, endMarker, name}
@@ -951,6 +932,209 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             end
         end
 
+        function selectEventsManually(app)
+            EEG = app.EEG;
+            structure = detectEventStructure(EEG);
+
+            % STEP 1: Discover available fields
+            fprintf('Discovering event fields...
+');
+            allFields = {};
+            fieldStats = struct();
+
+            for i = 1:min(100, length(EEG.event))
+                evt = EEG.event(i);
+                fnames = fieldnames(evt);
+                for f = 1:length(fnames)
+                    fname = fnames{f};
+                    % Skip basic EEGLAB fields
+                    if ~ismember(fname, {'type', 'latency', 'duration', 'urevent', 'epoch'})
+                        if ~isfield(fieldStats, fname)
+                            fieldStats.(fname) = {};
+                        end
+                        fval = evt.(fname);
+                        if ischar(fval) || isstring(fval)
+                            fieldStats.(fname){end+1} = char(fval);
+                        end
+                    end
+                end
+            end
+
+            availableFields = fieldnames(fieldStats);
+            if isempty(availableFields)
+                uialert(app.UIFigure, 'No event fields found for grouping.', 'No Fields');
+                return;
+            end
+
+            % Calculate unique values per field
+            fieldInfo = cell(length(availableFields), 1);
+            for i = 1:length(availableFields)
+                fname = availableFields{i};
+                uniqueVals = unique(fieldStats.(fname));
+                fieldInfo{i} = sprintf('%s (%d unique values)', fname, length(uniqueVals));
+            end
+
+            % STEP 1 DIALOG: Select grouping fields
+            d1 = uifigure('Name', 'Step 1: Select Grouping Fields', 'Position', [100 100 700 550]);
+
+            titleLabel = uilabel(d1, 'Position', [50 500 600 30], ...
+                'Text', 'Step 1: Select fields to group events by', ...
+                'FontSize', 16, 'FontWeight', 'bold');
+
+            infoLabel = uilabel(d1, 'Position', [50 470 600 20], ...
+                'Text', 'Choose which event fields define your conditions (e.g., mffkey_Cond, mffkey_Code)', ...
+                'FontSize', 11, 'FontColor', [0.5 0.5 0.5]);
+
+            fieldListbox = uilistbox(d1, 'Position', [50 150 600 300], ...
+                'Items', fieldInfo, ...
+                'ItemsData', 1:length(availableFields), ...
+                'Multiselect', 'on');
+
+            % Auto-select mffkey fields by default
+            defaultSelection = [];
+            for i = 1:length(availableFields)
+                if startsWith(lower(availableFields{i}), 'mffkey')
+                    defaultSelection(end+1) = i;
+                end
+            end
+            if ~isempty(defaultSelection)
+                fieldListbox.Value = defaultSelection;
+            end
+
+            selectAllFieldsBtn = uibutton(d1, 'Position', [50 110 120 30], ...
+                'Text', 'Select All', ...
+                'ButtonPushedFcn', @(btn,event) set(fieldListbox, 'Value', 1:length(availableFields)));
+
+            clearAllFieldsBtn = uibutton(d1, 'Position', [180 110 120 30], ...
+                'Text', 'Clear All', ...
+                'ButtonPushedFcn', @(btn,event) set(fieldListbox, 'Value', []));
+
+            nextBtn = uibutton(d1, 'Position', [500 30 100 50], ...
+                'Text', 'Next', ...
+                'FontSize', 14, ...
+                'BackgroundColor', [0.3 0.5 0.8], ...
+                'FontColor', [1 1 1], ...
+                'ButtonPushedFcn', @(btn,event) proceedToStep2());
+
+            cancelBtn = uibutton(d1, 'Position', [380 30 100 50], ...
+                'Text', 'Cancel', ...
+                'ButtonPushedFcn', @(btn,event) close(d1));
+
+            function proceedToStep2()
+                selectedFieldIdx = fieldListbox.Value;
+                if isempty(selectedFieldIdx)
+                    uialert(d1, 'Please select at least one field.', 'No Fields Selected');
+                    return;
+                end
+
+                selectedFields = availableFields(selectedFieldIdx);
+                close(d1);
+
+                % STEP 2: Parse events using selected fields
+                discovery = struct();
+                discovery.groupingFields = selectedFields;
+                discovery.practicePatterns = {};
+                discovery.valueMappings = struct();  % Required by parseEventUniversal
+
+                allEvents = {};
+                for i = 1:length(EEG.event)
+                    if isfield(EEG.event(i), 'type')
+                        condLabel = parseEventUniversal(EEG.event(i), structure, discovery, selectedFields);
+                        if ~isempty(condLabel)
+                            allEvents{end+1} = condLabel;
+                        end
+                    end
+                end
+
+                uniqueEvents = unique(allEvents);
+
+                if isempty(uniqueEvents)
+                    uialert(app.UIFigure, 'No events found with selected fields.', 'No Events');
+                    return;
+                end
+
+                % Count trials per event
+                eventCounts = zeros(length(uniqueEvents), 1);
+                for i = 1:length(uniqueEvents)
+                    eventCounts(i) = sum(strcmp(allEvents, uniqueEvents{i}));
+                end
+
+                % STEP 2 DIALOG: Select events
+                d2 = uifigure('Name', 'Step 2: Select Events', 'Position', [100 100 700 600]);
+
+                titleLabel2 = uilabel(d2, 'Position', [50 550 600 30], ...
+                    'Text', 'Step 2: Select which events to analyze', ...
+                    'FontSize', 16, 'FontWeight', 'bold');
+
+                infoLabel2 = uilabel(d2, 'Position', [50 520 600 20], ...
+                    'Text', sprintf('Grouped by: %s | Found %d event types', strjoin(selectedFields, ', '), length(uniqueEvents)), ...
+                    'FontSize', 11, 'FontColor', [0.5 0.5 0.5]);
+
+                % Create list with counts
+                displayList = cell(length(uniqueEvents), 1);
+                for i = 1:length(uniqueEvents)
+                    displayList{i} = sprintf('%s (%d trials)', uniqueEvents{i}, eventCounts(i));
+                end
+
+                eventListbox = uilistbox(d2, 'Position', [50 150 600 350], ...
+                    'Items', displayList, ...
+                    'ItemsData', 1:length(uniqueEvents), ...
+                    'Multiselect', 'on', ...
+                    'Value', 1:length(uniqueEvents));  % All selected by default
+
+                selectAllEventsBtn = uibutton(d2, 'Position', [50 110 120 30], ...
+                    'Text', 'Select All', ...
+                    'ButtonPushedFcn', @(btn,event) set(eventListbox, 'Value', 1:length(uniqueEvents)));
+
+                clearAllEventsBtn = uibutton(d2, 'Position', [180 110 120 30], ...
+                    'Text', 'Clear All', ...
+                    'ButtonPushedFcn', @(btn,event) set(eventListbox, 'Value', []));
+
+                backBtn = uibutton(d2, 'Position', [260 30 100 50], ...
+                    'Text', 'Back', ...
+                    'ButtonPushedFcn', @(btn,event) goBack());
+
+                okBtn = uibutton(d2, 'Position', [500 30 100 50], ...
+                    'Text', 'OK', ...
+                    'FontSize', 14, ...
+                    'BackgroundColor', [0.2 0.7 0.3], ...
+                    'FontColor', [1 1 1], ...
+                    'ButtonPushedFcn', @(btn,event) confirmSelection());
+
+                cancelBtn2 = uibutton(d2, 'Position', [380 30 100 50], ...
+                    'Text', 'Cancel', ...
+                    'ButtonPushedFcn', @(btn,event) close(d2));
+
+                function goBack()
+                    close(d2);
+                    selectEventsManually(app);  % Restart from step 1
+                end
+
+                function confirmSelection()
+                    selectedEventIdx = eventListbox.Value;
+                    if isempty(selectedEventIdx)
+                        uialert(d2, 'Please select at least one event type.', 'No Selection');
+                        return;
+                    end
+
+                    app.SelectedEvents = uniqueEvents(selectedEventIdx);
+                    app.SelectedFields = selectedFields;  % Store the grouping fields!
+                    app.EventSelectionLabel.Text = sprintf('%d events from %d fields', length(app.SelectedEvents), length(selectedFields));
+                    app.EventSelectionLabel.FontColor = [0.2 0.6 0.3];
+                    app.StartButton.Enable = 'on';
+                    close(d2);
+                end
+
+                uiwait(d2);
+            end
+
+            uiwait(d1);
+        end
+
+        function startAnalysis(app)
+            startProcessing(app);
+        end
+
         function startProcessing(app)
             % Check if user defined any epochs
             if ~isempty(app.EpochDefinitions)
@@ -1110,18 +1294,31 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
 
             app.RemovedComponents = removedComponents;
 
-            % Stage 6: Event Analysis (if epochs defined)
-            if ~isempty(app.EpochDefinitions)
-                updateProgress(app, 6, 'Extracting Epochs...');
+            % Stage 6: Epoch Extraction (using selected events)
+            if ~isempty(app.SelectedEvents)
+                updateProgress(app, 6, 'Extracting Epochs from Selected Events...');
                 try
-                    % Use marker-pair epoching
-                    app.EpochedData = epochEEGByMarkerPairs(EEG, app.EpochDefinitions);
-                    fprintf('Extracted %d epoch types\n', length(app.EpochedData));
+                    % Detect event structure
+                    structure = detectEventStructure(EEG);
+                    discovery = struct();
+                    discovery.groupingFields = app.SelectedFields;
+                    discovery.practicePatterns = {};
+                    discovery.valueMappings = struct();
+
+                    % Extract epochs using universal function
+                    timeWindow = [-0.2, 0.8];
+                    app.EpochedData = epochEEGByEventsUniversal(EEG, app.SelectedEvents, ...
+                        timeWindow, structure, discovery, app.SelectedFields);
+                    fprintf('Extracted %d epoch types
+', length(app.EpochedData));
                 catch ME
-                    fprintf('Epoch extraction failed: %s\n', ME.message);
+                    fprintf('Epoch extraction failed: %s
+', ME.message);
+                    app.EpochedData = [];
                 end
             else
-                updateProgress(app, 6, 'No Epochs Defined (Continuous Analysis)...');
+                updateProgress(app, 6, 'No Events Selected (Continuous Analysis)...');
+                app.EpochedData = [];
             end
 
             % Stage 7: Comprehensive Quality Evaluation
