@@ -53,16 +53,31 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         ResultsStatusIcon       matlab.ui.control.Label
         ResultsMessageLabel     matlab.ui.control.Label
         QualityScoreLabel       matlab.ui.control.Label
+
+        % Tabbed Results Interface (like JuanAnalyzer)
+        ResultsTabGroup         matlab.ui.container.TabGroup
+        QualityTab              matlab.ui.container.Tab
+        ClinicalTab             matlab.ui.container.Tab
+        EpochTab                matlab.ui.container.Tab
+        SummaryTab              matlab.ui.container.Tab
+
+        % Quality Tab Components
         VisualizationPanel      matlab.ui.container.Panel
         TopoAxes                matlab.ui.control.UIAxes
         PSDAxes                 matlab.ui.control.UIAxes
         SignalAxes              matlab.ui.control.UIAxes
+
+        % Clinical Tab Components
         ClinicalPanel           matlab.ui.container.Panel
         ThetaBetaAxes           matlab.ui.control.UIAxes
         MultiBandAxes           matlab.ui.control.UIAxes
         AsymmetryAxes           matlab.ui.control.UIAxes
         BandBarAxes             matlab.ui.control.UIAxes
+
+        % Summary Tab Components
         MetricsPanel            matlab.ui.container.Panel
+        SummaryTextArea         matlab.ui.control.TextArea
+
         ExportButton            matlab.ui.control.Button
         NewAnalysisButton       matlab.ui.control.Button
 
@@ -92,7 +107,10 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
 
     properties (Access = private)
         CurrentStage            double = 0
-        TotalStages             double = 6
+        TotalStages             double = 8
+        BadChannels             double = []  % Detected bad channels (not removed)
+        BadChannelLabels        cell = {}
+        RemovedComponents       double = []  % ICA components removed
     end
 
     methods (Access = public)
@@ -424,122 +442,170 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             stages = {
                 '✓ Loading Data'
                 '✓ Filtering & Preprocessing'
-                '✓ Artifact Detection'
-                '✓ Signal Cleaning'
-                '✓ Quality Evaluation'
-                '✓ Generating Visualizations'
+                '✓ Multi-Method Artifact Detection'
+                '✓ ICA with PCA Reduction'
+                '✓ Signal Cleaning (ICLabel 75%)'
+                '✓ Epoch Extraction'
+                '✓ Enhanced Quality Evaluation'
+                '✓ Clinical Metrics Computation'
             };
 
-            for i = 1:6
+            for i = 1:8
                 label = uilabel(stagesPanel);
-                label.Position = [30 135-i*22 440 18];
+                label.Position = [30 155-i*19 440 16];
                 label.Text = stages{i};
-                label.FontSize = 11;
+                label.FontSize = 10;
                 label.FontColor = [0.6 0.6 0.6];
             end
         end
 
         function createResultsPanel(app)
-            % Main Results Panel - Extended height for scrollable content
+            % Main Results Panel with Tabbed Interface (like JuanAnalyzer)
             app.ResultsPanel = uipanel(app.UIFigure);
-            app.ResultsPanel.Position = [1 1 1200 2000];  % Increased height for all content including detailed epochs
+            app.ResultsPanel.Position = [1 1 1200 900];
             app.ResultsPanel.BackgroundColor = [0.95 0.96 0.97];
             app.ResultsPanel.BorderType = 'none';
             app.ResultsPanel.Visible = 'off';
 
             % Status Icon
             app.ResultsStatusIcon = uilabel(app.ResultsPanel);
-            app.ResultsStatusIcon.Position = [550 1900 100 60];  % Top (moved up)
+            app.ResultsStatusIcon.Position = [550 820 100 60];
             app.ResultsStatusIcon.Text = '✅';
             app.ResultsStatusIcon.FontSize = 48;
             app.ResultsStatusIcon.HorizontalAlignment = 'center';
 
             % Status Label
             app.ResultsStatusLabel = uilabel(app.ResultsPanel);
-            app.ResultsStatusLabel.Position = [200 1840 800 40];  % Below icon (moved up)
+            app.ResultsStatusLabel.Position = [200 770 800 35];
             app.ResultsStatusLabel.Text = 'EEG quality is sufficient for clinical interpretation';
-            app.ResultsStatusLabel.FontSize = 22;
+            app.ResultsStatusLabel.FontSize = 20;
             app.ResultsStatusLabel.FontWeight = 'bold';
             app.ResultsStatusLabel.FontColor = [0.2 0.6 0.3];
             app.ResultsStatusLabel.HorizontalAlignment = 'center';
 
             % Quality Score
             app.QualityScoreLabel = uilabel(app.ResultsPanel);
-            app.QualityScoreLabel.Position = [400 1790 400 35];  % Below status (moved up)
+            app.QualityScoreLabel.Position = [400 730 400 30];
             app.QualityScoreLabel.Text = 'Quality Score: 85/100';
-            app.QualityScoreLabel.FontSize = 18;
+            app.QualityScoreLabel.FontSize = 16;
             app.QualityScoreLabel.FontColor = [0.3 0.4 0.5];
             app.QualityScoreLabel.HorizontalAlignment = 'center';
 
-            % Quality Visualization Panel (top section)
-            app.VisualizationPanel = uipanel(app.ResultsPanel);
-            app.VisualizationPanel.Position = [50 1400 1100 370];  % Below score (moved up)
+            % Tabbed Results (EXACTLY like JuanAnalyzer)
+            app.ResultsTabGroup = uitabgroup(app.ResultsPanel);
+            app.ResultsTabGroup.Position = [50 150 1100 560];
+
+            % === TAB 1: QUALITY ASSESSMENT ===
+            app.QualityTab = uitab(app.ResultsTabGroup);
+            app.QualityTab.Title = '📊 Quality Assessment';
+
+            % Quality Visualization Panel
+            app.VisualizationPanel = uipanel(app.QualityTab);
+            app.VisualizationPanel.Position = [10 10 1070 520];
             app.VisualizationPanel.BackgroundColor = [1 1 1];
             app.VisualizationPanel.BorderType = 'line';
-            app.VisualizationPanel.Title = 'Signal Quality Assessment';
-            app.VisualizationPanel.FontSize = 13;
+            app.VisualizationPanel.Title = 'Signal Quality Metrics';
+            app.VisualizationPanel.FontSize = 12;
             app.VisualizationPanel.FontWeight = 'bold';
 
-            % Create three visualization axes
             % Topographic Map
             app.TopoAxes = uiaxes(app.VisualizationPanel);
-            app.TopoAxes.Position = [30 50 320 280];
-            title(app.TopoAxes, 'Alpha Power Distribution', 'FontSize', 12);
+            app.TopoAxes.Position = [30 200 300 280];
+            title(app.TopoAxes, 'Alpha Power Distribution', 'FontSize', 11);
 
             % Power Spectral Density
             app.PSDAxes = uiaxes(app.VisualizationPanel);
-            app.PSDAxes.Position = [380 50 320 280];
-            title(app.PSDAxes, 'Power Spectral Density', 'FontSize', 12);
+            app.PSDAxes.Position = [380 200 300 280];
+            title(app.PSDAxes, 'Power Spectral Density', 'FontSize', 11);
             xlabel(app.PSDAxes, 'Frequency (Hz)');
             ylabel(app.PSDAxes, 'Power (dB)');
 
             % Signal Traces
             app.SignalAxes = uiaxes(app.VisualizationPanel);
-            app.SignalAxes.Position = [730 50 320 280];
-            title(app.SignalAxes, 'Before vs After Cleaning', 'FontSize', 12);
+            app.SignalAxes.Position = [730 200 300 280];
+            title(app.SignalAxes, 'Before vs After Cleaning', 'FontSize', 11);
             xlabel(app.SignalAxes, 'Time (s)');
             ylabel(app.SignalAxes, 'Amplitude (µV)');
 
-            % Clinical Visualization Panel (middle section) - With bar chart
-            app.ClinicalPanel = uipanel(app.ResultsPanel);
-            app.ClinicalPanel.Position = [50 880 1100 490];  % Below quality panel, above epochs
+            % Metrics display at bottom
+            app.MetricsPanel = uipanel(app.VisualizationPanel);
+            app.MetricsPanel.Position = [30 20 1000 160];
+            app.MetricsPanel.BackgroundColor = [0.98 0.99 1];
+            app.MetricsPanel.BorderType = 'line';
+            app.MetricsPanel.Title = 'Detailed Quality Metrics';
+            app.MetricsPanel.FontSize = 10;
+
+            % === TAB 2: CLINICAL DIAGNOSTICS ===
+            app.ClinicalTab = uitab(app.ResultsTabGroup);
+            app.ClinicalTab.Title = '🧠 Clinical Diagnostics';
+
+            % Clinical Visualization Panel
+            app.ClinicalPanel = uipanel(app.ClinicalTab);
+            app.ClinicalPanel.Position = [10 10 1070 520];
             app.ClinicalPanel.BackgroundColor = [1 1 1];
             app.ClinicalPanel.BorderType = 'line';
-            app.ClinicalPanel.Title = 'Clinical Diagnostics';
-            app.ClinicalPanel.FontSize = 13;
+            app.ClinicalPanel.Title = 'Clinical Biomarkers (ADHD/ASD)';
+            app.ClinicalPanel.FontSize = 12;
             app.ClinicalPanel.FontWeight = 'bold';
 
-            % Clinical visualization axes (topomaps on top row)
             % Theta/Beta Ratio Map
             app.ThetaBetaAxes = uiaxes(app.ClinicalPanel);
-            app.ThetaBetaAxes.Position = [30 170 320 280];
-            title(app.ThetaBetaAxes, 'Theta/Beta Ratio', 'FontSize', 12);
+            app.ThetaBetaAxes.Position = [30 220 300 280];
+            title(app.ThetaBetaAxes, 'Theta/Beta Ratio', 'FontSize', 11);
 
             % Multi-Band Power Distribution
             app.MultiBandAxes = uiaxes(app.ClinicalPanel);
-            app.MultiBandAxes.Position = [380 170 320 280];
-            title(app.MultiBandAxes, 'Multi-Band Power', 'FontSize', 12);
+            app.MultiBandAxes.Position = [380 220 300 280];
+            title(app.MultiBandAxes, 'Multi-Band Power', 'FontSize', 11);
 
             % Hemispheric Asymmetry
             app.AsymmetryAxes = uiaxes(app.ClinicalPanel);
-            app.AsymmetryAxes.Position = [730 170 320 280];
-            title(app.AsymmetryAxes, 'Hemispheric Asymmetry', 'FontSize', 12);
+            app.AsymmetryAxes.Position = [730 220 300 280];
+            title(app.AsymmetryAxes, 'Hemispheric Asymmetry', 'FontSize', 11);
 
-            % Frequency Band Bar Chart (bottom of clinical panel)
+            % Frequency Band Bar Chart
             app.BandBarAxes = uiaxes(app.ClinicalPanel);
-            app.BandBarAxes.Position = [30 20 1040 130];
-            title(app.BandBarAxes, 'Frequency Band Power Comparison', 'FontSize', 12);
+            app.BandBarAxes.Position = [30 20 1000 180];
+            title(app.BandBarAxes, 'Frequency Band Power Comparison', 'FontSize', 11);
             ylabel(app.BandBarAxes, 'Relative Power (%)');
 
-            % Metrics Panel (below clinical panel)
-            app.MetricsPanel = uipanel(app.ResultsPanel);
-            app.MetricsPanel.Position = [50 350 1100 100];  % Below clinical panel
-            app.MetricsPanel.BackgroundColor = [0.95 0.98 1];
-            app.MetricsPanel.BorderType = 'line';
+            % === TAB 3: EPOCH ANALYSIS ===
+            app.EpochTab = uitab(app.ResultsTabGroup);
+            app.EpochTab.Title = '⚡ Epoch Analysis';
 
-            % Action Buttons (below metrics panel)
+            % Epoch Panel (will be populated dynamically)
+            app.EpochPanel = uipanel(app.EpochTab);
+            app.EpochPanel.Position = [10 10 1070 520];
+            app.EpochPanel.BackgroundColor = [1 1 1];
+            app.EpochPanel.BorderType = 'line';
+            app.EpochPanel.Title = 'Event-Related Analysis';
+            app.EpochPanel.FontSize = 12;
+            app.EpochPanel.FontWeight = 'bold';
+            app.EpochPanel.Scrollable = 'on';
+
+            % Placeholder message
+            epochPlaceholder = uilabel(app.EpochPanel);
+            epochPlaceholder.Position = [250 250 570 30];
+            epochPlaceholder.Text = 'No epochs defined - Use marker-pair epoch builder during upload';
+            epochPlaceholder.FontSize = 13;
+            epochPlaceholder.FontColor = [0.5 0.5 0.5];
+            epochPlaceholder.HorizontalAlignment = 'center';
+
+            % === TAB 4: SUMMARY ===
+            app.SummaryTab = uitab(app.ResultsTabGroup);
+            app.SummaryTab.Title = '📋 Summary Report';
+
+            % Summary Text Area
+            app.SummaryTextArea = uitextarea(app.SummaryTab);
+            app.SummaryTextArea.Position = [10 10 1070 520];
+            app.SummaryTextArea.Editable = 'off';
+            app.SummaryTextArea.FontName = 'Courier New';
+            app.SummaryTextArea.FontSize = 10;
+            app.SummaryTextArea.Value = {'EEG Quality Analysis Summary', '', 'Analysis in progress...'};
+
+            % Action Buttons
             app.ExportButton = uibutton(app.ResultsPanel, 'push');
-            app.ExportButton.Position = [400 280 180 40];  % Below metrics panel
+            app.ExportButton.Position = [400 80 180 50];
             app.ExportButton.Text = '📄 Export Report';
             app.ExportButton.FontSize = 14;
             app.ExportButton.BackgroundColor = [0.3 0.5 0.8];
@@ -547,7 +613,7 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             app.ExportButton.ButtonPushedFcn = @(btn,event) exportReport(app);
 
             app.NewAnalysisButton = uibutton(app.ResultsPanel, 'push');
-            app.NewAnalysisButton.Position = [620 280 180 40];  % Below metrics panel
+            app.NewAnalysisButton.Position = [620 80 180 50];
             app.NewAnalysisButton.Text = '🔄 New Analysis';
             app.NewAnalysisButton.FontSize = 14;
             app.NewAnalysisButton.BackgroundColor = [0.5 0.5 0.5];
@@ -919,15 +985,15 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         end
 
         function processEEG(app)
-            % Run automated preprocessing pipeline with progress updates
+            % Run preprocessing pipeline matching JuanAnalyzerManual exactly
 
             % Stage 1: Loading Data
             updateProgress(app, 1, 'Loading Data...');
             EEG = app.EEG;
             EEG_original = EEG; % Store original for comparison
-            pause(0.5);
+            pause(0.3);
 
-            % Stage 2: Filtering & Preprocessing
+            % Stage 2: Filtering & Preprocessing (EXACT match with JuanAnalyzerManual)
             updateProgress(app, 2, 'Filtering & Preprocessing...');
             params.resample_rate = 250;
             params.hp_cutoff = 0.5;
@@ -940,63 +1006,144 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             EEG = pop_eegfiltnew(EEG, 'locutoff', params.notch_freq-2, 'hicutoff', params.notch_freq+2, 'revfilt', 1, 'plotfreqz', 0);
             EEG = pop_reref(EEG, []);
 
-            % Stage 3: Artifact Detection
-            updateProgress(app, 3, 'Detecting Artifacts...');
+            % Stage 3: Artifact Detection (Multi-method, but DON'T remove channels)
+            updateProgress(app, 3, 'Detecting Artifacts (Multi-Method)...');
+            badChans = [];
+            badChanLabels = {};
+
             try
-                EEG = pop_rejchan(EEG, 'elec', 1:EEG.nbchan, 'threshold', 7, 'norm', 'on', 'measure', 'kurt');
-            catch
-                % Continue if bad channel rejection fails
+                % Method 1-3: Kurtosis, Probability, Spectrum
+                EEG_temp = pop_rejchan(EEG, 'elec', 1:EEG.nbchan, ...
+                    'threshold', [5 5 5], ...
+                    'norm', 'on', ...
+                    'measure', 'kurt', 'prob', 'spec');
+
+                % Identify flagged channels
+                if EEG_temp.nbchan < EEG.nbchan
+                    originalChans = 1:EEG.nbchan;
+                    if isfield(EEG, 'chanlocs') && ~isempty(EEG.chanlocs)
+                        originalLabels = {EEG.chanlocs.labels};
+                        remainingLabels = {EEG_temp.chanlocs.labels};
+                        badChans = find(~ismember(originalLabels, remainingLabels));
+                        badChanLabels = originalLabels(badChans);
+                    else
+                        badChans = setdiff(originalChans, 1:EEG_temp.nbchan);
+                    end
+                end
+
+                % Method 4: Correlation with neighboring channels
+                if isfield(EEG, 'chanlocs') && length(EEG.chanlocs) > 1
+                    correlationThreshold = 0.4;
+                    for i = 1:EEG.nbchan
+                        chanData = EEG.data(i, :);
+                        corrVals = zeros(EEG.nbchan - 1, 1);
+                        idx = 1;
+                        for j = 1:EEG.nbchan
+                            if i ~= j
+                                corrVals(idx) = corr(chanData', EEG.data(j, :)');
+                                idx = idx + 1;
+                            end
+                        end
+
+                        meanCorr = mean(abs(corrVals));
+                        if meanCorr < correlationThreshold
+                            if ~ismember(i, badChans)
+                                badChans(end+1) = i;
+                                if isfield(EEG, 'chanlocs') && ~isempty(EEG.chanlocs)
+                                    badChanLabels{end+1} = EEG.chanlocs(i).labels;
+                                end
+                            end
+                        end
+                    end
+                end
+
+                % Sort bad channels
+                if ~isempty(badChans)
+                    [badChans, sortIdx] = sort(badChans);
+                    if ~isempty(badChanLabels)
+                        badChanLabels = badChanLabels(sortIdx);
+                    end
+                end
+
+                % Store but DON'T remove - keep EEG unchanged
+                app.BadChannels = badChans;
+                app.BadChannelLabels = badChanLabels;
+
+                fprintf('Detected %d bad channels (kept for analysis): %s\n', ...
+                    length(badChans), strjoin(badChanLabels, ', '));
+            catch ME
+                fprintf('Warning: Bad channel detection error: %s\n', ME.message);
             end
 
-            % Run ICA
+            % Run ICA with PCA reduction (EXACT match - 40 components for speed)
+            updateProgress(app, 4, 'Running ICA with PCA Reduction...');
             try
-                EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1);
-            catch
-                % Skip ICA if it fails
+                EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1, 'pca', 40);
+                fprintf('ICA completed with PCA reduction to 40 components\n');
+            catch ME
+                fprintf('ICA failed: %s\n', ME.message);
             end
 
-            % Stage 4: Cleaning Signal
-            updateProgress(app, 4, 'Cleaning Signal...');
+            % Stage 5: Cleaning Signal (ICLabel at 75% threshold - EXACT match)
+            updateProgress(app, 5, 'Cleaning Signal with ICLabel...');
+            removedComponents = [];
 
-            % Run ICLabel if ICA succeeded
             if isfield(EEG, 'icaweights') && ~isempty(EEG.icaweights)
                 try
                     EEG = pop_iclabel(EEG, 'default');
 
-                    % Auto-flag artifact components
-                    EEG = pop_icflag(EEG, [0 0; 0.9 1; 0.9 1; 0.9 1; 0.9 1; 0.9 1; 0 0]);
+                    % Auto-flag artifacts at 75% confidence (EXACT match)
+                    EEG = pop_icflag(EEG, [0 0; 0.75 1; 0.75 1; 0.75 1; 0.75 1; 0.75 1; 0 0]);
 
                     % Remove flagged components
                     bad_comps = find(EEG.reject.gcompreject);
                     if ~isempty(bad_comps)
+                        removedComponents = bad_comps;
                         EEG = pop_subcomp(EEG, bad_comps, 0);
+                        fprintf('Removed %d artifact components: %s\n', ...
+                            length(bad_comps), mat2str(bad_comps));
                     end
-                catch
-                    % Continue if ICLabel fails
+                catch ME
+                    fprintf('ICLabel failed: %s\n', ME.message);
                 end
             end
 
-            % Stage 5: Quality Evaluation
-            updateProgress(app, 5, 'Evaluating Quality...');
-            metrics = computeQualityMetrics(app, EEG, EEG_original);
+            app.RemovedComponents = removedComponents;
 
-            % Compute clinical diagnostic metrics (ADHD/ASD biomarkers)
+            % Stage 6: Event Analysis (if epochs defined)
+            if ~isempty(app.EpochDefinitions)
+                updateProgress(app, 6, 'Extracting Epochs...');
+                try
+                    % Use marker-pair epoching
+                    app.EpochedData = epochEEGByMarkerPairs(EEG, app.EpochDefinitions);
+                    fprintf('Extracted %d epoch types\n', length(app.EpochedData));
+                catch ME
+                    fprintf('Epoch extraction failed: %s\n', ME.message);
+                end
+            else
+                updateProgress(app, 6, 'No Epochs Defined (Continuous Analysis)...');
+            end
+
+            % Stage 7: Comprehensive Quality Evaluation
+            updateProgress(app, 7, 'Evaluating Quality (Enhanced Metrics)...');
+            metrics = computeEnhancedQualityMetrics(app, EEG, EEG_original, ...
+                badChans, removedComponents);
+            app.QualityMetrics = metrics;
+
+            % Compute clinical diagnostic metrics
             try
+                updateProgress(app, 8, 'Computing Clinical Metrics...');
                 clinical = computeClinicalMetrics(EEG);
                 app.ClinicalMetrics = clinical;
             catch ME
-                warning('Clinical metrics computation failed: %s', ME.message);
-                app.ClinicalMetrics = struct();  % Empty struct as fallback
+                warning('Clinical metrics failed: %s', ME.message);
+                app.ClinicalMetrics = struct();
             end
-
-            % Stage 6: Generating Visualizations
-            updateProgress(app, 6, 'Rendering Visualizations...');
 
             % Store results
             app.EEGClean = EEG;
-            app.QualityMetrics = metrics;
 
-            pause(0.5);
+            pause(0.3);
         end
 
         function metrics = computeQualityMetrics(app, EEG_clean, EEG_original)
@@ -1092,43 +1239,15 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
                 app.QualityScoreLabel.Text = 'Quality Score: Calculating...';
             end
 
-            % Detect and display event information
+            % Detect and display event information (for epoch analysis)
             detectAndDisplayEvents(app);
 
-            % Generate visualizations if clean
-            if isfield(metrics, 'is_clean') && metrics.is_clean
-                generateVisualizations(app);
-                displayMetrics(app);
-            else
-                % Show brief explanation
-                reasonText = 'Dominant noise sources detected:';
+            % Generate visualizations
+            generateVisualizations(app);
+            displayMetrics(app);
 
-                % Safely check each metric
-                if isfield(metrics, 'channels_removed') && isfield(metrics, 'channels_original')
-                    if metrics.channels_removed > metrics.channels_original * 0.2
-                        reasonText = sprintf('%s\n• Excessive bad channels', reasonText);
-                    end
-                end
-
-                if isfield(metrics, 'artifact_ratio') && metrics.artifact_ratio > 0.3
-                    reasonText = sprintf('%s\n• High artifact contamination', reasonText);
-                end
-
-                if isfield(metrics, 'snr_db') && metrics.snr_db < 5
-                    reasonText = sprintf('%s\n• Low signal-to-noise ratio', reasonText);
-                end
-
-                % If no specific reasons found
-                if strcmp(reasonText, 'Dominant noise sources detected:')
-                    reasonText = 'EEG quality assessment indicates insufficient signal quality for reliable analysis.';
-                end
-
-                label = uilabel(app.MetricsPanel);
-                label.Position = [50 20 1000 60];
-                label.Text = reasonText;
-                label.FontSize = 13;
-                label.FontColor = [0.5 0.3 0.2];
-            end
+            % Generate summary report
+            generateSummaryReport(app);
         end
 
         function generateVisualizations(app)
@@ -1165,78 +1284,246 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         end
 
         function displayMetrics(app)
-            % Clear previous metrics
+            % Display enhanced metrics in Quality Tab
             delete(app.MetricsPanel.Children);
 
             metrics = app.QualityMetrics;
 
-            % Safely get values with defaults
-            if isfield(metrics, 'channels_clean')
-                channels_clean = metrics.channels_clean;
+            % Create detailed metrics grid
+            metricTexts = {};
+
+            % Row 1: Channels and Bad Channels
+            if isfield(metrics, 'bad_channels_detected')
+                metricTexts{end+1} = sprintf('📊 Channels: %d total (%d bad detected)', ...
+                    metrics.channels_original, metrics.bad_channels_detected);
+                if ~isempty(metrics.bad_channel_labels)
+                    metricTexts{end+1} = sprintf('   Bad: %s', strjoin(metrics.bad_channel_labels(1:min(5,end)), ', '));
+                end
             else
-                channels_clean = app.EEGClean.nbchan;
+                metricTexts{end+1} = sprintf('📊 Channels: %d total', metrics.channels_original);
             end
 
-            if isfield(metrics, 'channels_original')
-                channels_original = metrics.channels_original;
-            else
-                channels_original = channels_clean;
-            end
-
+            % Row 2: Artifacts
             if isfield(metrics, 'artifact_components')
-                artifact_comps = metrics.artifact_components;
-            else
-                artifact_comps = 0;
+                metricTexts{end+1} = sprintf('🎯 Artifacts: %d/%d components removed (%.1f%%)', ...
+                    metrics.artifact_components, metrics.total_components, metrics.artifact_ratio*100);
+                if metrics.eye_artifacts > 0 || metrics.muscle_artifacts > 0
+                    metricTexts{end+1} = sprintf('   Eye: %d, Muscle: %d, Heart: %d, Line: %d', ...
+                        metrics.eye_artifacts, metrics.muscle_artifacts, ...
+                        metrics.heart_artifacts, metrics.line_noise_comps);
+                end
             end
 
-            if isfield(metrics, 'artifact_ratio')
-                artifact_ratio = metrics.artifact_ratio * 100;
-            else
-                artifact_ratio = 0;
-            end
-
+            % Row 3: Signal Quality
             if isfield(metrics, 'snr_db')
-                snr = metrics.snr_db;
-            else
-                snr = 15;
+                metricTexts{end+1} = sprintf('📈 SNR: %.1f dB | Kurtosis: %.2f', ...
+                    metrics.snr_db, metrics.kurtosis);
             end
 
+            % Row 4: Temporal Stability
+            if isfield(metrics, 'temporal_stability_cv')
+                metricTexts{end+1} = sprintf('⏱ Temporal Stability: CV=%.3f', ...
+                    metrics.temporal_stability_cv);
+            end
+
+            % Row 5: Amplitude Range
+            if isfield(metrics, 'amplitude_range_uv')
+                metricTexts{end+1} = sprintf('📏 Amplitude Range: %.1f µV (P01=%.1f, P99=%.1f)', ...
+                    metrics.amplitude_range_uv, metrics.amplitude_p01, metrics.amplitude_p99);
+            end
+
+            % Row 6: Spectral Quality
+            if isfield(metrics, 'line_noise_ratio')
+                metricTexts{end+1} = sprintf('🔊 Line Noise: %.2f%% | Alpha: %.1f%%', ...
+                    metrics.line_noise_ratio*100, metrics.alpha_relative*100);
+            end
+
+            % Row 7: Duration
             if isfield(metrics, 'duration')
-                duration = metrics.duration / 60;
-            elseif isfield(app.EEGClean, 'xmax')
-                duration = app.EEGClean.xmax / 60;
-            else
-                duration = 0;
+                metricTexts{end+1} = sprintf('⏱️  Duration: %.1f minutes (%.0f sec)', ...
+                    metrics.duration/60, metrics.duration);
             end
 
-            % Create metric labels with comprehensive information
-            metricTexts = {
-                sprintf('📊 Channels: %d/%d retained', channels_clean, channels_original)
-                sprintf('🎯 Artifacts: %d components removed (%.1f%%)', artifact_comps, artifact_ratio)
-                sprintf('📈 SNR: %.1f dB', snr)
-                sprintf('⏱️  Duration: %.1f min', duration)
-            };
-
-            % Add band power information if available
-            if isfield(metrics, 'alpha_relative') && metrics.alpha_relative > 0
-                extraText = sprintf('🧠 Alpha Power: %.1f%%', metrics.alpha_relative*100);
-                metricTexts{end+1} = extraText;
+            % Row 8: Component Scores
+            if isfield(metrics, 'channel_score')
+                metricTexts{end+1} = sprintf('🏆 Component Scores: Ch=%d, Art=%d, SNR=%d, Spec=%d, Temp=%d, Amp=%d', ...
+                    metrics.channel_score, metrics.artifact_score, metrics.signal_score, ...
+                    metrics.spectral_score, metrics.temporal_score, metrics.amplitude_score);
             end
 
-            % Display metrics in a grid
-            n_metrics = length(metricTexts);
-            metrics_per_row = min(4, n_metrics);
-            metric_width = 1000 / metrics_per_row;
-
-            for i = 1:n_metrics
-                row = floor((i-1) / metrics_per_row);
-                col = mod(i-1, metrics_per_row);
-
+            % Display as a list
+            y_pos = 130;
+            for i = 1:length(metricTexts)
                 label = uilabel(app.MetricsPanel);
-                label.Position = [50 + col*metric_width, 50 - row*30, metric_width-20, 25];
+                label.Position = [15 y_pos 970 15];
                 label.Text = metricTexts{i};
-                label.FontSize = 12;
-                label.FontColor = [0.3 0.4 0.5];
+                label.FontSize = 9;
+                label.FontColor = [0.2 0.3 0.4];
+                y_pos = y_pos - 16;
+            end
+        end
+
+        function generateSummaryReport(app)
+            % Generate comprehensive text summary for Summary Tab
+            metrics = app.QualityMetrics;
+
+            summary = {};
+            summary{end+1} = '═══════════════════════════════════════════════════════════════';
+            summary{end+1} = '       EEG QUALITY ANALYSIS - COMPREHENSIVE REPORT';
+            summary{end+1} = '═══════════════════════════════════════════════════════════════';
+            summary{end+1} = '';
+            summary{end+1} = sprintf('Analysis Date: %s', datestr(now));
+            if isfield(app, 'EEGFile') && ~isempty(app.EEGFile)
+                [~, fname, ext] = fileparts(app.EEGFile);
+                summary{end+1} = sprintf('File: %s%s', fname, ext);
+            end
+            summary{end+1} = '';
+
+            % Overall Quality
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = '  OVERALL QUALITY ASSESSMENT';
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            if isfield(metrics, 'total_score')
+                summary{end+1} = sprintf('  Quality Score: %d/100 (%s)', ...
+                    metrics.total_score, metrics.quality_level);
+                summary{end+1} = sprintf('  Status: %s', ...
+                    iif(metrics.is_clean, 'ACCEPTABLE for clinical use', 'INSUFFICIENT quality'));
+            end
+            summary{end+1} = '';
+
+            % Component Scores
+            summary{end+1} = '  Component Breakdown:';
+            if isfield(metrics, 'channel_score')
+                summary{end+1} = sprintf('    • Channel Quality:      %2d/20 points', metrics.channel_score);
+                summary{end+1} = sprintf('    • Artifact Removal:     %2d/25 points', metrics.artifact_score);
+                summary{end+1} = sprintf('    • Signal-to-Noise:      %2d/20 points', metrics.signal_score);
+                summary{end+1} = sprintf('    • Spectral Quality:     %2d/15 points', metrics.spectral_score);
+                summary{end+1} = sprintf('    • Temporal Stability:   %2d/10 points', metrics.temporal_score);
+                summary{end+1} = sprintf('    • Amplitude Range:      %2d/10 points', metrics.amplitude_score);
+            end
+            summary{end+1} = '';
+
+            % Channel Analysis
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = '  CHANNEL ANALYSIS';
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = sprintf('  Total Channels: %d', metrics.channels_original);
+            if isfield(metrics, 'bad_channels_detected')
+                summary{end+1} = sprintf('  Bad Channels Detected: %d (%.1f%%)', ...
+                    metrics.bad_channels_detected, (metrics.bad_channels_detected/metrics.channels_original)*100);
+                if ~isempty(metrics.bad_channel_labels)
+                    summary{end+1} = sprintf('  Bad Channel Labels: %s', strjoin(metrics.bad_channel_labels, ', '));
+                end
+                summary{end+1} = sprintf('  Note: Bad channels kept for analysis (not removed)');
+            end
+            summary{end+1} = '';
+
+            % Artifact Analysis
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = '  ARTIFACT ANALYSIS (ICA)';
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = sprintf('  Total Components: %d (PCA-reduced from full rank)', metrics.total_components);
+            summary{end+1} = sprintf('  Artifact Components Removed: %d (%.1f%%)', ...
+                metrics.artifact_components, metrics.artifact_ratio*100);
+            summary{end+1} = sprintf('  ICLabel Classification (>75%% confidence):');
+            summary{end+1} = sprintf('    • Eye Movement:      %d components', metrics.eye_artifacts);
+            summary{end+1} = sprintf('    • Muscle Tension:    %d components', metrics.muscle_artifacts);
+            summary{end+1} = sprintf('    • Cardiac:           %d components', metrics.heart_artifacts);
+            summary{end+1} = sprintf('    • Line Noise:        %d components', metrics.line_noise_comps);
+            summary{end+1} = '';
+
+            % Signal Quality
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = '  SIGNAL QUALITY METRICS';
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = sprintf('  Signal-to-Noise Ratio: %.1f dB', metrics.snr_db);
+            summary{end+1} = sprintf('  Signal RMS: %.2f µV', metrics.signal_rms);
+            summary{end+1} = sprintf('  Kurtosis: %.2f (ideal ~3.0)', metrics.kurtosis);
+            if isfield(metrics, 'temporal_stability_cv')
+                summary{end+1} = sprintf('  Temporal Stability CV: %.3f', metrics.temporal_stability_cv);
+            end
+            if isfield(metrics, 'amplitude_range_uv')
+                summary{end+1} = sprintf('  Amplitude Range: %.1f µV (P1=%.1f, P99=%.1f)', ...
+                    metrics.amplitude_range_uv, metrics.amplitude_p01, metrics.amplitude_p99);
+            end
+            summary{end+1} = '';
+
+            % Spectral Analysis
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = '  SPECTRAL ANALYSIS';
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = '  Relative Band Powers:';
+            summary{end+1} = sprintf('    • Delta (0.5-4 Hz):   %5.1f%%', metrics.delta_relative*100);
+            summary{end+1} = sprintf('    • Theta (4-8 Hz):     %5.1f%%', metrics.theta_relative*100);
+            summary{end+1} = sprintf('    • Alpha (8-13 Hz):    %5.1f%%', metrics.alpha_relative*100);
+            summary{end+1} = sprintf('    • Beta (13-30 Hz):    %5.1f%%', metrics.beta_relative*100);
+            summary{end+1} = sprintf('    • Gamma (30-50 Hz):   %5.1f%%', metrics.gamma_relative*100);
+            summary{end+1} = sprintf('  Line Noise (60 Hz): %.2f%% of total power', metrics.line_noise_ratio*100);
+            summary{end+1} = '';
+
+            % Noise Sources
+            if ~isempty(metrics.noise_sources)
+                summary{end+1} = '─────────────────────────────────────────────────────────────────';
+                summary{end+1} = '  DETECTED NOISE SOURCES';
+                summary{end+1} = '─────────────────────────────────────────────────────────────────';
+                for i = 1:length(metrics.noise_sources)
+                    summary{end+1} = sprintf('  ⚠ %s', metrics.noise_sources{i});
+                end
+                summary{end+1} = '';
+            end
+
+            % Recommendations
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = '  RECOMMENDATIONS';
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            for i = 1:length(metrics.recommendations)
+                summary{end+1} = sprintf('  %s', metrics.recommendations{i});
+            end
+            summary{end+1} = '';
+
+            % Recording Info
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = '  RECORDING INFORMATION';
+            summary{end+1} = '─────────────────────────────────────────────────────────────────';
+            summary{end+1} = sprintf('  Duration: %.1f minutes (%.0f seconds)', ...
+                metrics.duration/60, metrics.duration);
+            summary{end+1} = sprintf('  Sampling Rate: %.0f Hz', metrics.sampling_rate);
+            summary{end+1} = '';
+
+            % Epoch Info
+            if ~isempty(app.EpochDefinitions)
+                summary{end+1} = '─────────────────────────────────────────────────────────────────';
+                summary{end+1} = '  EPOCH ANALYSIS';
+                summary{end+1} = '─────────────────────────────────────────────────────────────────';
+                summary{end+1} = sprintf('  Epochs Defined: %d', length(app.EpochDefinitions));
+                for i = 1:length(app.EpochDefinitions)
+                    def = app.EpochDefinitions{i};
+                    summary{end+1} = sprintf('    %d. %s (%s → %s)', i, def.name, def.startMarker, def.endMarker);
+                end
+                if ~isempty(app.EpochedData)
+                    summary{end+1} = sprintf('  Extracted Epochs: %d types', length(app.EpochedData));
+                    for i = 1:length(app.EpochedData)
+                        ep = app.EpochedData(i);
+                        summary{end+1} = sprintf('    • %s: %d trials', ep.eventType, ep.numEpochs);
+                    end
+                end
+                summary{end+1} = '';
+            end
+
+            summary{end+1} = '═══════════════════════════════════════════════════════════════';
+            summary{end+1} = '                    END OF REPORT';
+            summary{end+1} = '═══════════════════════════════════════════════════════════════';
+
+            % Update summary text area
+            app.SummaryTextArea.Value = summary;
+        end
+
+        % Helper function for inline if
+        function result = iif(condition, trueVal, falseVal)
+            if condition
+                result = trueVal;
+            else
+                result = falseVal;
             end
         end
 
