@@ -1378,8 +1378,12 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             if isfield(metrics, 'total_score')
                 summary{end+1} = sprintf('  Quality Score: %d/100 (%s)', ...
                     metrics.total_score, metrics.quality_level);
-                summary{end+1} = sprintf('  Status: %s', ...
-                    iif(metrics.is_clean, 'ACCEPTABLE for clinical use', 'INSUFFICIENT quality'));
+                if metrics.is_clean
+                    statusText = 'ACCEPTABLE for clinical use';
+                else
+                    statusText = 'INSUFFICIENT quality';
+                end
+                summary{end+1} = sprintf('  Status: %s', statusText);
             end
             summary{end+1} = '';
 
@@ -1508,15 +1512,6 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
 
             % Update summary text area
             app.SummaryTextArea.Value = summary;
-        end
-
-        % Helper function for inline if
-        function result = iif(condition, trueVal, falseVal)
-            if condition
-                result = trueVal;
-            else
-                result = falseVal;
-            end
         end
 
         function exportReport(app)
