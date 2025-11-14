@@ -84,14 +84,14 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         EventFieldInfo          struct  % Detailed info about available event fields
         EpochedData             struct
         EpochDefinitions        cell  % Cell array of structs {startMarker, endMarker, name}
+        BadChannels             double = []  % Detected bad channels (not removed)
+        BadChannelLabels        cell = {}
+        RemovedComponents       double = []  % ICA components removed
     end
 
     properties (Access = private)
         CurrentStage            double = 0
         TotalStages             double = 8
-        BadChannels             double = []  % Detected bad channels (not removed)
-        BadChannelLabels        cell = {}
-        RemovedComponents       double = []  % ICA components removed
     end
 
     methods (Access = public)
