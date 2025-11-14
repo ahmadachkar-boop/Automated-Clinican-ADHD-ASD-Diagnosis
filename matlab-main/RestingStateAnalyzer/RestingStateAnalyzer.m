@@ -1168,7 +1168,8 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             try
                 updateProgress(app, 8, 'Computing Resting State Band Powers...');
                 if ~isempty(app.SegmentData)
-                    restingMetrics = computeRestingStateMetrics(app.SegmentData);
+                    % Use DIAGNOSTIC version to see what's happening with the spectrum
+                    restingMetrics = computeRestingStateMetrics_diagnostic(app.SegmentData);
                     app.ClinicalMetrics = restingMetrics;  % Store in ClinicalMetrics for now
                 else
                     fprintf('No segments available for resting state analysis\n');
