@@ -79,8 +79,11 @@ function metrics = computeRestingStateMetrics(segmentData)
             end
             psdAvg = psdSum / seg.nbchan;
 
+            % Compute total power in analysis range (1-50 Hz) to exclude low-frequency drift
+            analysisRange = freqs >= 1 & freqs <= 50;
+            totalPower = trapz(freqs(analysisRange), psdAvg(analysisRange));
+
             % Compute band powers
-            totalPower = 0;
             segBandPowers = struct();
 
             for b = 1:length(bandNames)
@@ -93,7 +96,6 @@ function metrics = computeRestingStateMetrics(segmentData)
                 % Integrate power in this band (absolute power)
                 bandPower = trapz(freqs(freqIdx), psdAvg(freqIdx));
                 segBandPowers.(bandName) = bandPower;
-                totalPower = totalPower + bandPower;
             end
 
             % Compute relative powers for this segment

@@ -405,6 +405,8 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             % Clinical Visualization Panel
             app.ClinicalPanel = uipanel(app.ClinicalTab);
             app.ClinicalPanel.Position = [10 10 1070 520];
+            app.ClinicalPanel.Scrollable = 'on';  % Make scrollable
+            app.ClinicalPanel.BackgroundColor = [1 1 1];
             app.ClinicalPanel.BackgroundColor = [1 1 1];
             app.ClinicalPanel.BorderType = 'line';
             app.ClinicalPanel.Title = 'Clinical Biomarkers (ADHD/ASD)';
