@@ -10,9 +10,9 @@ function metrics = computeRestingStateMetrics_diagnostic(segmentData)
         return;
     end
 
-    % Define frequency bands
+    % Define frequency bands (conservative definitions for resting state)
     bands = struct();
-    bands.delta = [1 4];
+    bands.delta = [2 4];    % Narrower delta (excludes very slow oscillations 1-2 Hz)
     bands.theta = [4 8];
     bands.alpha = [8 13];
     bands.beta = [13 30];
