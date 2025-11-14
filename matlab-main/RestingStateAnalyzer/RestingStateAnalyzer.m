@@ -1022,10 +1022,10 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             EEG_original = EEG; % Store original for comparison
             pause(0.3);
 
-            % Stage 2: Filtering & Preprocessing (EXACT match with JuanAnalyzerManual)
+            % Stage 2: Filtering & Preprocessing (Optimized for Resting State)
             updateProgress(app, 2, 'Filtering & Preprocessing...');
             params.resample_rate = 250;
-            params.hp_cutoff = 0.5;
+            params.hp_cutoff = 1.0;  % 1 Hz for resting state (removes slow drift)
             params.lp_cutoff = 50;
             params.notch_freq = 60;
 
@@ -1168,8 +1168,8 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             try
                 updateProgress(app, 8, 'Computing Resting State Band Powers...');
                 if ~isempty(app.SegmentData)
-                    % Use DIAGNOSTIC version to see what's happening with the spectrum
-                    restingMetrics = computeRestingStateMetrics_diagnostic(app.SegmentData);
+                    % Use standard version (1 Hz high-pass filter addresses drift issue)
+                    restingMetrics = computeRestingStateMetrics(app.SegmentData);
                     app.ClinicalMetrics = restingMetrics;  % Store in ClinicalMetrics for now
                 else
                     fprintf('No segments available for resting state analysis\n');

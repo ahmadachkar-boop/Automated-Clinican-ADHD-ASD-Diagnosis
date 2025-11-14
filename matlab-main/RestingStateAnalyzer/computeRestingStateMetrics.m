@@ -65,16 +65,19 @@ function metrics = computeRestingStateMetrics(segmentData)
         for segIdx = 1:length(condSegments)
             seg = condSegments(segIdx);
 
+            % Detrend data to remove any residual linear drift
+            detrendedData = detrend(seg.data', 'linear')';
+
             % Compute PSD using pwelch
             % Average across channels for overall analysis
-            windowLength = min(seg.srate * 2, size(seg.data, 2));  % 2-second window
+            windowLength = min(seg.srate * 2, size(detrendedData, 2));  % 2-second window
             noverlap = floor(windowLength / 2);
-            nfft = max(256, 2^nextpow2(windowLength));
+            nfft = max(512, 2^nextpow2(windowLength));  % Higher NFFT for better frequency resolution
 
             % Compute PSD for each channel and average
             psdSum = zeros(nfft/2 + 1, 1);
             for ch = 1:seg.nbchan
-                [psd, freqs] = pwelch(seg.data(ch, :), windowLength, noverlap, nfft, seg.srate);
+                [psd, freqs] = pwelch(detrendedData(ch, :), windowLength, noverlap, nfft, seg.srate);
                 psdSum = psdSum + psd;
             end
             psdAvg = psdSum / seg.nbchan;
