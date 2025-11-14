@@ -156,200 +156,80 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         end
 
         function createUploadPanel(app)
-            % Main Upload Panel
             app.UploadPanel = uipanel(app.UIFigure);
-            app.UploadPanel.Position = [1 1 1200 1200];
-            app.UploadPanel.BackgroundColor = [0.95 0.96 0.97];
+            % Center panel with safe margins
+            screenSize = get(0, 'ScreenSize');
+            panelWidth = min(1400, screenSize(3) - 100);  % Ensure 50px margin on each side
+            panelHeight = 600;
+            panelX = max(50, (screenSize(3) - panelWidth) / 2);  % Center, with minimum 50px from left
+            panelY = (screenSize(4) - panelHeight) / 2;
+            app.UploadPanel.Position = [panelX panelY panelWidth panelHeight];
+            app.UploadPanel.BackgroundColor = [1 1 1];
             app.UploadPanel.BorderType = 'none';
-
-            % Title (centered in taller window)
-            titleLabel = uilabel(app.UploadPanel);
-            titleLabel.Position = [300 920 600 50];  % Moved up 200px
-            titleLabel.Text = 'EEG Quality Analyzer';
-            titleLabel.FontSize = 32;
-            titleLabel.FontWeight = 'bold';
-            titleLabel.FontColor = [0.2 0.3 0.5];
-            titleLabel.HorizontalAlignment = 'center';
-
+            % Title
+            app.TitleLabel = uilabel(app.UploadPanel);
+            app.TitleLabel.Position = [200 500 600 50];
+            app.TitleLabel.Text = 'EEG Quality Analyzer';
+            app.TitleLabel.FontSize = 36;
+            app.TitleLabel.FontWeight = 'bold';
+            app.TitleLabel.FontColor = [0.2 0.3 0.6];
+            app.TitleLabel.HorizontalAlignment = 'center';
             % Subtitle
-            subtitleLabel = uilabel(app.UploadPanel);
-            subtitleLabel.Position = [300 880 600 30];  % Moved up 200px
-            subtitleLabel.Text = 'Upload your EEG file to begin automated quality assessment';
-            subtitleLabel.FontSize = 14;
-            subtitleLabel.FontColor = [0.4 0.5 0.6];
-            subtitleLabel.HorizontalAlignment = 'center';
-
-            % Drop Zone Panel
-            app.DropZonePanel = uipanel(app.UploadPanel);
-            app.DropZonePanel.Position = [300 600 600 250];  % Moved up 200px
-            app.DropZonePanel.BackgroundColor = [1 1 1];
-            app.DropZonePanel.BorderType = 'line';
-            app.DropZonePanel.BorderWidth = 2;
-            app.DropZonePanel.HighlightColor = [0.7 0.8 0.9];
-
-            % Drop Zone Label
-            app.DropZoneLabel = uilabel(app.DropZonePanel);
-            app.DropZoneLabel.Position = [50 100 500 100];
-            app.DropZoneLabel.Text = sprintf('📁\n\nDrag & Drop EEG File Here\n(.edf, .set, .fif, .mff)');
-            app.DropZoneLabel.FontSize = 18;
-            app.DropZoneLabel.FontColor = [0.5 0.6 0.7];
-            app.DropZoneLabel.HorizontalAlignment = 'center';
-
+            app.SubtitleLabel = uilabel(app.UploadPanel);
+            app.SubtitleLabel.Position = [150 460 700 30];
+            app.SubtitleLabel.Text = 'Automated Quality Assessment with Manual Event Selection';
+            app.SubtitleLabel.FontSize = 14;
+            app.SubtitleLabel.FontColor = [0.4 0.5 0.6];
+            app.SubtitleLabel.HorizontalAlignment = 'center';
             % Browse Button
-            app.BrowseButton = uibutton(app.DropZonePanel, 'push');
-            app.BrowseButton.Position = [225 40 150 40];
-            app.BrowseButton.Text = 'Browse Files';
-            app.BrowseButton.FontSize = 14;
+            app.BrowseButton = uibutton(app.UploadPanel, 'push');
+            app.BrowseButton.Position = [350 370 300 50];
+            app.BrowseButton.Text = 'Select EEG File';
+            app.BrowseButton.FontSize = 18;
             app.BrowseButton.BackgroundColor = [0.3 0.5 0.8];
             app.BrowseButton.FontColor = [1 1 1];
             app.BrowseButton.ButtonPushedFcn = @(btn,event) browseFile(app);
-
-            % File Info Panel (hidden initially) - Taller to accommodate event selection
-            app.FileInfoPanel = uipanel(app.UploadPanel);
-            app.FileInfoPanel.Position = [200 250 800 380];  % Larger panel
-            app.FileInfoPanel.BackgroundColor = [0.95 0.98 1];
-            app.FileInfoPanel.BorderType = 'line';
-            app.FileInfoPanel.Visible = 'off';
-
-            % File info labels
-            app.FilenameLabel = uilabel(app.FileInfoPanel);
-            app.FilenameLabel.Position = [20 340 760 25];
-            app.FilenameLabel.FontSize = 14;
-            app.FilenameLabel.FontWeight = 'bold';
-
-            app.DurationLabel = uilabel(app.FileInfoPanel);
-            app.DurationLabel.Position = [20 310 760 20];
-            app.DurationLabel.FontSize = 12;
-
-            app.ChannelsLabel = uilabel(app.FileInfoPanel);
-            app.ChannelsLabel.Position = [20 285 760 20];
-            app.ChannelsLabel.FontSize = 12;
-
-            % Events detected label
-            app.EventsDetectedLabel = uilabel(app.FileInfoPanel);
-            app.EventsDetectedLabel.Position = [20 255 760 20];
-            app.EventsDetectedLabel.FontSize = 12;
-            app.EventsDetectedLabel.FontColor = [0.3 0.5 0.7];
-            app.EventsDetectedLabel.Visible = 'off';
-
-            % Event Field Selection Section
-            app.EventFieldLabel = uilabel(app.FileInfoPanel);
-            app.EventFieldLabel.Position = [20 325 200 20];
-            app.EventFieldLabel.Text = '🔍 Select Event Field Type:';
-            app.EventFieldLabel.FontSize = 11;
-            app.EventFieldLabel.FontWeight = 'bold';
-            app.EventFieldLabel.FontColor = [0.2 0.4 0.6];
-            app.EventFieldLabel.Visible = 'off';
-
-            app.EventFieldDropdown = uidropdown(app.FileInfoPanel);
-            app.EventFieldDropdown.Position = [220 323 150 22];
-            app.EventFieldDropdown.FontSize = 10;
-            app.EventFieldDropdown.Items = {};
-            app.EventFieldDropdown.Visible = 'off';
-            app.EventFieldDropdown.ValueChangedFcn = @(dd,event) detectMarkersFromField(app);
-
-            app.DetectMarkersButton = uibutton(app.FileInfoPanel, 'push');
-            app.DetectMarkersButton.Position = [380 320 120 28];
-            app.DetectMarkersButton.Text = 'Detect Markers';
-            app.DetectMarkersButton.FontSize = 10;
-            app.DetectMarkersButton.BackgroundColor = [0.2 0.6 0.8];
-            app.DetectMarkersButton.FontColor = [1 1 1];
-            app.DetectMarkersButton.Visible = 'off';
-            app.DetectMarkersButton.ButtonPushedFcn = @(btn,event) detectMarkersFromField(app);
-
-            % Epoch Builder Section (hidden initially, shown when events detected)
-            app.EpochBuilderLabel = uilabel(app.FileInfoPanel);
-            app.EpochBuilderLabel.Position = [20 225 760 25];
-            app.EpochBuilderLabel.Text = '⚡ Define Epochs Between Markers:';
-            app.EpochBuilderLabel.FontSize = 13;
-            app.EpochBuilderLabel.FontWeight = 'bold';
-            app.EpochBuilderLabel.FontColor = [0.2 0.4 0.6];
-            app.EpochBuilderLabel.Visible = 'off';
-
-            % Start Marker
-            app.StartMarkerLabel = uilabel(app.FileInfoPanel);
-            app.StartMarkerLabel.Position = [20 195 80 20];
-            app.StartMarkerLabel.Text = 'Start Marker:';
-            app.StartMarkerLabel.FontSize = 10;
-            app.StartMarkerLabel.Visible = 'off';
-
-            app.StartMarkerDropdown = uidropdown(app.FileInfoPanel);
-            app.StartMarkerDropdown.Position = [105 193 150 22];
-            app.StartMarkerDropdown.FontSize = 10;
-            app.StartMarkerDropdown.Items = {};
-            app.StartMarkerDropdown.Visible = 'off';
-
-            % End Marker
-            app.EndMarkerLabel = uilabel(app.FileInfoPanel);
-            app.EndMarkerLabel.Position = [265 195 70 20];
-            app.EndMarkerLabel.Text = 'End Marker:';
-            app.EndMarkerLabel.FontSize = 10;
-            app.EndMarkerLabel.Visible = 'off';
-
-            app.EndMarkerDropdown = uidropdown(app.FileInfoPanel);
-            app.EndMarkerDropdown.Position = [340 193 150 22];
-            app.EndMarkerDropdown.FontSize = 10;
-            app.EndMarkerDropdown.Items = {};
-            app.EndMarkerDropdown.Visible = 'off';
-
-            % Epoch Name
-            app.EpochNameLabel = uilabel(app.FileInfoPanel);
-            app.EpochNameLabel.Position = [500 195 80 20];
-            app.EpochNameLabel.Text = 'Epoch Name:';
-            app.EpochNameLabel.FontSize = 10;
-            app.EpochNameLabel.Visible = 'off';
-
-            app.EpochNameField = uieditfield(app.FileInfoPanel, 'text');
-            app.EpochNameField.Position = [585 193 120 22];
-            app.EpochNameField.FontSize = 10;
-            app.EpochNameField.Placeholder = 'e.g., Trial 1';
-            app.EpochNameField.Visible = 'off';
-
-            % Add Epoch Button
-            app.AddEpochButton = uibutton(app.FileInfoPanel, 'push');
-            app.AddEpochButton.Position = [715 190 65 28];
-            app.AddEpochButton.Text = '+ Add';
-            app.AddEpochButton.FontSize = 10;
-            app.AddEpochButton.FontWeight = 'bold';
-            app.AddEpochButton.BackgroundColor = [0.2 0.6 0.8];
-            app.AddEpochButton.FontColor = [1 1 1];
-            app.AddEpochButton.ButtonPushedFcn = @(btn,event) addEpochDefinition(app);
-            app.AddEpochButton.Visible = 'off';
-
-            % Epoch List Label
-            app.EpochListLabel = uilabel(app.FileInfoPanel);
-            app.EpochListLabel.Position = [20 160 760 20];
-            app.EpochListLabel.Text = 'Defined Epochs (will be compared):';
-            app.EpochListLabel.FontSize = 10;
-            app.EpochListLabel.FontWeight = 'bold';
-            app.EpochListLabel.Visible = 'off';
-
-            % Epoch List Box
-            app.EpochListBox = uilistbox(app.FileInfoPanel);
-            app.EpochListBox.Position = [20 70 680 85];
-            app.EpochListBox.FontSize = 10;
-            app.EpochListBox.Items = {};
-            app.EpochListBox.Visible = 'off';
-
-            % Remove Epoch Button
-            app.RemoveEpochButton = uibutton(app.FileInfoPanel, 'push');
-            app.RemoveEpochButton.Position = [710 70 70 30];
-            app.RemoveEpochButton.Text = 'Remove';
-            app.RemoveEpochButton.FontSize = 10;
-            app.RemoveEpochButton.BackgroundColor = [0.8 0.3 0.2];
-            app.RemoveEpochButton.FontColor = [1 1 1];
-            app.RemoveEpochButton.ButtonPushedFcn = @(btn,event) removeEpochDefinition(app);
-            app.RemoveEpochButton.Visible = 'off';
-
+            % File info label
+            app.FileInfoLabel = uilabel(app.UploadPanel);
+            app.FileInfoLabel.Position = [100 320 800 30];
+            app.FileInfoLabel.Text = 'No file selected';
+            app.FileInfoLabel.FontSize = 12;
+            app.FileInfoLabel.FontColor = [0.5 0.5 0.5];
+            app.FileInfoLabel.HorizontalAlignment = 'center';
+            % Event Selection Button
+            app.EventSelectionButton = uibutton(app.UploadPanel, 'push');
+            app.EventSelectionButton.Position = [350 240 300 50];
+            app.EventSelectionButton.Text = 'Select Events';
+            app.EventSelectionButton.FontSize = 18;
+            app.EventSelectionButton.BackgroundColor = [0.5 0.4 0.7];
+            app.EventSelectionButton.FontColor = [1 1 1];
+            app.EventSelectionButton.Enable = 'off';
+            app.EventSelectionButton.ButtonPushedFcn = @(btn,event) selectEventsManually(app);
+            % Event Selection Label
+            app.EventSelectionLabel = uilabel(app.UploadPanel);
+            app.EventSelectionLabel.Position = [100 190 800 30];
+            app.EventSelectionLabel.Text = 'No events selected';
+            app.EventSelectionLabel.FontSize = 12;
+            app.EventSelectionLabel.FontColor = [0.5 0.5 0.5];
+            app.EventSelectionLabel.HorizontalAlignment = 'center';
             % Start Button
-            app.StartButton = uibutton(app.FileInfoPanel, 'push');
-            app.StartButton.Position = [325 20 150 35];
+            app.StartButton = uibutton(app.UploadPanel, 'push');
+            app.StartButton.Position = [350 100 300 50];
             app.StartButton.Text = 'Start Analysis';
-            app.StartButton.FontSize = 14;
-            app.StartButton.BackgroundColor = [0.2 0.7 0.4];
+            app.StartButton.FontSize = 18;
+            app.StartButton.BackgroundColor = [0.2 0.7 0.3];
             app.StartButton.FontColor = [1 1 1];
-            app.StartButton.ButtonPushedFcn = @(btn,event) startProcessing(app);
+            app.StartButton.Enable = 'off';
+            app.StartButton.ButtonPushedFcn = @(btn,event) startAnalysis(app);
+            % Instructions
+            instrLabel = uilabel(app.UploadPanel);
+            instrLabel.Position = [100 40 800 40];
+            instrLabel.Text = sprintf('Supports: .mff, .set, .edf formats\nManual event selection • Step-by-step workflow');
+            instrLabel.FontSize = 10;
+            instrLabel.FontColor = [0.6 0.6 0.6];
+            instrLabel.HorizontalAlignment = 'center';
         end
+
 
         function createProcessingPanel(app)
             % Main Processing Panel
@@ -726,116 +606,34 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         end
 
         function browseFile(app)
-            % Open file browser
-            [file, path] = uigetfile({'*.edf;*.set;*.fif;*.mff', 'EEG Files (*.edf, *.set, *.fif, *.mff)'}, ...
+            [file, path] = uigetfile({'*.mff;*.set;*.edf', 'EEG Files (*.mff, *.set, *.edf)'}, ...
                 'Select EEG File');
 
-            if file ~= 0
-                app.EEGFile = fullfile(path, file);
-                loadFileInfo(app);
+            if file == 0
+                return;
             end
-        end
 
-        function loadFileInfo(app)
-            % Quick load to get basic info
+            app.EEGFile = fullfile(path, file);
+            app.FileInfoLabel.Text = sprintf('Loading: %s...', file);
+            app.FileInfoLabel.FontColor = [0.5 0.5 0.5];
+            drawnow;
+
+            % Load file
             try
-                % EEGLAB is already initialized by launchEEGAnalyzer
-                % No need to reinitialize here
-
-                % Load file based on extension
-                [~, ~, ext] = fileparts(app.EEGFile);
-
-                if strcmp(ext, '.mff')
-                    % Import MFF with default settings (imports all available fields)
-                    % Don't specify event types as it can cause errors if fields don't exist
-                    EEG = pop_mffimport(app.EEGFile);
-                    fprintf('MFF imported with default settings (all available event fields)\n');
-                elseif strcmp(ext, '.set')
-                    EEG = pop_loadset(app.EEGFile);
-                elseif strcmp(ext, '.edf')
-                    EEG = pop_biosig(app.EEGFile);
-                elseif strcmp(ext, '.fif')
-                    EEG = pop_fileio(app.EEGFile);
+                if endsWith(file, '.mff')
+                    EEG = pop_mffimport(app.EEGFile, {});
                 else
-                    error('Unsupported file format');
+                    EEG = pop_loadset(app.EEGFile);
                 end
-
-                % Update UI with file info
-                [~, name, ext] = fileparts(app.EEGFile);
-                app.FilenameLabel.Text = sprintf('📁 %s%s', name, ext);
-                app.DurationLabel.Text = sprintf('⏱️  Duration: %.1f seconds (%.1f minutes)', EEG.xmax, EEG.xmax/60);
-                app.ChannelsLabel.Text = sprintf('📊 Channels: %d', EEG.nbchan);
-
-                % Debug: Print actual event structure fields
-                if isfield(EEG, 'event') && ~isempty(EEG.event)
-                    fprintf('\n=== Event Structure Fields ===\n');
-                    fprintf('Total events in file: %d\n', length(EEG.event));
-                    eventFields = fieldnames(EEG.event);
-                    fprintf('Fields present in event structure: %s\n', strjoin(eventFields, ', '));
-                    fprintf('===============================\n\n');
-                end
-
-                % Detect available event fields
-                try
-                    [fieldNames, fieldInfo] = getAvailableEventFields(EEG);
-
-                    if ~isempty(fieldNames)
-                        % Store field info for later use
-                        app.EventFieldInfo = fieldInfo;
-
-                        % Create preview items for dropdown
-                        previewItems = cell(1, length(fieldInfo));
-                        for i = 1:length(fieldInfo)
-                            previewItems{i} = fieldInfo(i).preview;
-                        end
-
-                        % Show event field selection UI
-                        app.EventFieldLabel.Visible = 'on';
-                        app.EventFieldDropdown.Items = previewItems;
-                        app.EventFieldDropdown.ItemsData = fieldNames;  % Store actual field names
-                        app.EventFieldDropdown.Value = fieldNames{1};  % Default to first field
-                        app.EventFieldDropdown.Visible = 'on';
-                        app.DetectMarkersButton.Visible = 'on';
-
-                        % Show info about events with preview of first field
-                        if isfield(EEG, 'event') && ~isempty(EEG.event)
-                            app.EventsDetectedLabel.Text = sprintf('⚡ Found %d events total - Choose field above (markers shown in preview)', length(EEG.event));
-                            app.EventsDetectedLabel.Visible = 'on';
-                        end
-
-                        % Hide epoch builder until markers are detected
-                        hideEpochBuilder(app);
-
-                        % Clear any previous epoch definitions
-                        app.EpochDefinitions = {};
-                        app.EpochListBox.Items = {};
-                    else
-                        % No event fields found - hide all event-related UI
-                        app.EventsDetectedLabel.Text = '⚠️  No event markers found in this file';
-                        app.EventsDetectedLabel.Visible = 'on';
-                        app.EventFieldLabel.Visible = 'off';
-                        app.EventFieldDropdown.Visible = 'off';
-                        app.DetectMarkersButton.Visible = 'off';
-                        hideEpochBuilder(app);
-                    end
-                catch ME
-                    fprintf('Warning: Event field detection failed: %s\n', ME.message);
-                    % Hide event-related UI if detection fails
-                    app.EventsDetectedLabel.Visible = 'off';
-                    app.EventFieldLabel.Visible = 'off';
-                    app.EventFieldDropdown.Visible = 'off';
-                    app.DetectMarkersButton.Visible = 'off';
-                    hideEpochBuilder(app);
-                end
-
-                % Show file info panel
-                app.FileInfoPanel.Visible = 'on';
-
-                % Store basic EEG info
                 app.EEG = EEG;
-
+                app.FileInfoLabel.Text = sprintf('%s | %d channels | %d events | %.1f sec', ...
+                    file, EEG.nbchan, length(EEG.event), EEG.xmax);
+                app.FileInfoLabel.FontColor = [0.2 0.6 0.3];
+                app.EventSelectionButton.Enable = 'on';
             catch ME
-                uialert(app.UIFigure, ME.message, 'Error Loading File');
+                uialert(app.UIFigure, sprintf('Failed to load file: %s', ME.message), 'Load Error');
+                app.FileInfoLabel.Text = 'File load failed';
+                app.FileInfoLabel.FontColor = [0.8 0.2 0.2];
             end
         end
 
@@ -937,8 +735,7 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             structure = detectEventStructure(EEG);
 
             % STEP 1: Discover available fields
-            fprintf('Discovering event fields...
-');
+            fprintf('Discovering event fields...\n');
             allFields = {};
             fieldStats = struct();
 
