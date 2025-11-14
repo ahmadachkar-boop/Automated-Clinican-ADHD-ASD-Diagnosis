@@ -401,35 +401,32 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             % === TAB 2: CLINICAL DIAGNOSTICS ===
             app.ClinicalTab = uitab(app.ResultsTabGroup);
             app.ClinicalTab.Title = '📊 Condition Comparison';
+            app.ClinicalTab.Scrollable = 'on';  % Make tab itself scrollable
 
-            % Clinical Visualization Panel (scrollable with increased height)
+            % Clinical Visualization Panel (tall panel for scrolling)
             app.ClinicalPanel = uipanel(app.ClinicalTab);
-            app.ClinicalPanel.Position = [10 10 1070 1200];  % Increased height for scrolling
-            app.ClinicalPanel.Scrollable = 'on';  % Make scrollable
+            app.ClinicalPanel.Position = [10 10 1070 1200];  % Tall panel (1200px height) for scrolling
             app.ClinicalPanel.BackgroundColor = [1 1 1];
-            app.ClinicalPanel.BorderType = 'line';
-            app.ClinicalPanel.Title = 'Condition Comparison';
-            app.ClinicalPanel.FontSize = 12;
-            app.ClinicalPanel.FontWeight = 'bold';
+            app.ClinicalPanel.BorderType = 'none';
 
             % Plot 1: Relative Band Powers (top left)
             app.ThetaBetaAxes = uiaxes(app.ClinicalPanel);
-            app.ThetaBetaAxes.Position = [30 820 480 320];
+            app.ThetaBetaAxes.Position = [30 830 480 320];  % Top row at Y=830
             title(app.ThetaBetaAxes, 'Relative Band Powers', 'FontSize', 11);
 
             % Plot 2: Absolute Band Powers (top right)
             app.MultiBandAxes = uiaxes(app.ClinicalPanel);
-            app.MultiBandAxes.Position = [550 820 480 320];
+            app.MultiBandAxes.Position = [550 830 480 320];  % Top row at Y=830
             title(app.MultiBandAxes, 'Absolute Band Powers', 'FontSize', 11);
 
-            % Plot 3: Band Power Differences (middle left)
+            % Plot 3: Band Power Differences (bottom left)
             app.AsymmetryAxes = uiaxes(app.ClinicalPanel);
-            app.AsymmetryAxes.Position = [30 430 480 320];
+            app.AsymmetryAxes.Position = [30 460 480 320];  % Bottom row at Y=460
             title(app.AsymmetryAxes, 'Band Power Differences', 'FontSize', 11);
 
-            % Plot 4: Detailed Statistics (middle right)
+            % Plot 4: Detailed Statistics (bottom right)
             app.BandBarAxes = uiaxes(app.ClinicalPanel);
-            app.BandBarAxes.Position = [550 430 480 320];
+            app.BandBarAxes.Position = [550 460 480 320];  % Bottom row at Y=460
             title(app.BandBarAxes, 'Analysis Summary', 'FontSize', 11);
 
             % === TAB 3: EPOCH ANALYSIS ===
