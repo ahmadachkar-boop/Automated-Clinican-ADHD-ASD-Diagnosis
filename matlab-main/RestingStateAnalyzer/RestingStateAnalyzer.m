@@ -306,7 +306,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
                 '✓ Loading Data'
                 '✓ Filtering & Preprocessing'
                 '✓ Multi-Method Artifact Detection'
-                '✓ ICA with PCA Reduction'
+                '✓ ICA (Full Rank)'
                 '✓ Signal Cleaning (ICLabel 75%)'
                 '✓ Continuous Segment Extraction'
                 '✓ Enhanced Quality Evaluation'
@@ -1102,11 +1102,11 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
                 fprintf('Warning: Bad channel detection error: %s\n', ME.message);
             end
 
-            % Run ICA with PCA reduction (EXACT match - 40 components for speed)
-            updateProgress(app, 4, 'Running ICA with PCA Reduction...');
+            % Run ICA at full rank (no PCA reduction)
+            updateProgress(app, 4, 'Running ICA (Full Rank)...');
             try
-                EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1, 'pca', 40);
-                fprintf('ICA completed with PCA reduction to 40 components\n');
+                EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1);
+                fprintf('ICA completed at full rank (%d components)\n', size(EEG.icaweights, 1));
             catch ME
                 fprintf('ICA failed: %s\n', ME.message);
             end
