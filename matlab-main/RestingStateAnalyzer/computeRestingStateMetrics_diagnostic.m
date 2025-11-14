@@ -101,12 +101,12 @@ function metrics = computeRestingStateMetrics_diagnostic(segmentData)
                 freqLabels = {'0.5-1 Hz', '1-2 Hz', '2-4 Hz', '4-8 Hz', '8-13 Hz', '13-30 Hz', '30-50 Hz'};
                 for fr = 1:size(freqRanges, 1)
                     fIdx = freqs >= freqRanges(fr, 1) & freqs <= freqRanges(fr, 2);
-                    if sum(fIdx) > 0  % Check if any frequencies in this range
+                    if sum(fIdx) >= 2  % Need at least 2 points for trapz
                         power = trapz(freqs(fIdx), psdAvg(fIdx));
                         pct = (power / totalPower) * 100;
                         fprintf('    %s: %.2f%%\n', freqLabels{fr}, pct);
                     else
-                        fprintf('    %s: No data (insufficient frequency resolution)\n', freqLabels{fr});
+                        fprintf('    %s: No data (need at least 2 frequency bins)\n', freqLabels{fr});
                     end
                 end
             end
