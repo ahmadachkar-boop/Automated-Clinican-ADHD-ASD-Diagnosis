@@ -131,20 +131,20 @@ function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4)
             'Units', 'normalized', 'HorizontalAlignment', 'center', 'FontSize', 10);
     end
 
-    % PLOT 4: Segment Statistics Summary
+    % PLOT 4: Detailed Statistics and Band Powers
     cla(ax4);
     hold(ax4, 'off');
     axis(ax4, 'off');
 
     % Create text summary
-    yPos = 0.95;
-    lineHeight = 0.15;
+    yPos = 0.98;
+    lineHeight = 0.045;  % Smaller line height to fit more content
 
     % Title
-    text(ax4, 0.5, yPos, 'Segment Statistics', ...
+    text(ax4, 0.5, yPos, 'Resting State Analysis Summary', ...
         'Units', 'normalized', 'HorizontalAlignment', 'center', ...
-        'FontSize', 14, 'FontWeight', 'bold');
-    yPos = yPos - lineHeight;
+        'FontSize', 13, 'FontWeight', 'bold');
+    yPos = yPos - lineHeight * 1.3;
 
     % For each condition
     for condIdx = 1:numConds
@@ -152,42 +152,88 @@ function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4)
         condMetrics = restingMetrics.(cond);
 
         % Condition name
-        yPos = yPos - lineHeight/2;
-        text(ax4, 0.1, yPos, sprintf('%s:', cond), ...
-            'Units', 'normalized', 'FontSize', 12, 'FontWeight', 'bold', ...
+        text(ax4, 0.05, yPos, sprintf('%s:', cond), ...
+            'Units', 'normalized', 'FontSize', 11, 'FontWeight', 'bold', ...
             'Color', colors(condIdx, :));
         yPos = yPos - lineHeight;
 
-        % Stats
-        text(ax4, 0.15, yPos, sprintf('Segments: %d', condMetrics.numSegments), ...
-            'Units', 'normalized', 'FontSize', 10);
-        yPos = yPos - lineHeight;
+        % Segment stats
+        text(ax4, 0.08, yPos, sprintf('Segments: %d  |  Total: %.1f sec  |  Mean: %.1f sec', ...
+            condMetrics.numSegments, condMetrics.totalDuration, condMetrics.meanDuration), ...
+            'Units', 'normalized', 'FontSize', 9);
+        yPos = yPos - lineHeight * 1.2;
 
-        text(ax4, 0.15, yPos, sprintf('Total Duration: %.2f sec', condMetrics.totalDuration), ...
-            'Units', 'normalized', 'FontSize', 10);
-        yPos = yPos - lineHeight;
-
-        text(ax4, 0.15, yPos, sprintf('Mean Duration: %.2f sec', condMetrics.meanDuration), ...
-            'Units', 'normalized', 'FontSize', 10);
-        yPos = yPos - lineHeight;
-
-        % Dominant band
-        [maxPower, maxIdx] = max([condMetrics.relative.delta.mean, ...
-            condMetrics.relative.theta.mean, ...
-            condMetrics.relative.alpha.mean, ...
-            condMetrics.relative.beta.mean, ...
-            condMetrics.relative.gamma.mean]);
-        dominantBand = upper(bandNames{maxIdx});
-        text(ax4, 0.15, yPos, sprintf('Dominant Band: %s (%.1f%%)', dominantBand, maxPower), ...
+        % Band Powers - two columns
+        text(ax4, 0.08, yPos, 'Relative Band Powers:', ...
             'Units', 'normalized', 'FontSize', 10, 'FontWeight', 'bold');
+        yPos = yPos - lineHeight;
+
+        % Left column: Delta, Theta, Alpha
+        text(ax4, 0.10, yPos, sprintf('Delta (2-4 Hz):   %.2f%% ± %.2f%%', ...
+            condMetrics.relative.delta.mean, condMetrics.relative.delta.std), ...
+            'Units', 'normalized', 'FontSize', 9);
+        yPos = yPos - lineHeight;
+
+        text(ax4, 0.10, yPos, sprintf('Theta (4-8 Hz):   %.2f%% ± %.2f%%', ...
+            condMetrics.relative.theta.mean, condMetrics.relative.theta.std), ...
+            'Units', 'normalized', 'FontSize', 9);
+        yPos = yPos - lineHeight;
+
+        text(ax4, 0.10, yPos, sprintf('Alpha (8-13 Hz):  %.2f%% ± %.2f%%', ...
+            condMetrics.relative.alpha.mean, condMetrics.relative.alpha.std), ...
+            'Units', 'normalized', 'FontSize', 9, 'FontWeight', 'bold', 'Color', [0 0.4 0.8]);
+        yPos = yPos - lineHeight;
+
+        text(ax4, 0.10, yPos, sprintf('Beta (13-30 Hz):  %.2f%% ± %.2f%%', ...
+            condMetrics.relative.beta.mean, condMetrics.relative.beta.std), ...
+            'Units', 'normalized', 'FontSize', 9);
+        yPos = yPos - lineHeight;
+
+        text(ax4, 0.10, yPos, sprintf('Gamma (30-50 Hz): %.2f%% ± %.2f%%', ...
+            condMetrics.relative.gamma.mean, condMetrics.relative.gamma.std), ...
+            'Units', 'normalized', 'FontSize', 9);
         yPos = yPos - lineHeight * 1.5;
     end
 
-    % Alpha/Theta ratio comparison (eyes open vs closed marker)
+    % Condition comparison if 2 conditions
     if numConds == 2
-        yPos = yPos - lineHeight/2;
-        text(ax4, 0.1, yPos, 'Clinical Indicators:', ...
-            'Units', 'normalized', 'FontSize', 12, 'FontWeight', 'bold');
+        text(ax4, 0.05, yPos, 'Condition Comparison:', ...
+            'Units', 'normalized', 'FontSize', 11, 'FontWeight', 'bold');
+        yPos = yPos - lineHeight;
+
+        cond1 = conditions{1};
+        cond2 = conditions{2};
+
+        % Alpha comparison (most important)
+        alpha1 = restingMetrics.(cond1).relative.alpha.mean;
+        alpha2 = restingMetrics.(cond2).relative.alpha.mean;
+        alphaDiff = alpha1 - alpha2;
+        text(ax4, 0.08, yPos, sprintf('Alpha: %.2f%% (%s) vs %.2f%% (%s) → %+.2f%%', ...
+            alpha1, cond1, alpha2, cond2, alphaDiff), ...
+            'Units', 'normalized', 'FontSize', 9, 'FontWeight', 'bold', 'Color', [0 0.4 0.8]);
+        yPos = yPos - lineHeight;
+
+        % Delta comparison
+        delta1 = restingMetrics.(cond1).relative.delta.mean;
+        delta2 = restingMetrics.(cond2).relative.delta.mean;
+        deltaDiff = delta1 - delta2;
+        text(ax4, 0.08, yPos, sprintf('Delta: %.2f%% (%s) vs %.2f%% (%s) → %+.2f%%', ...
+            delta1, cond1, delta2, cond2, deltaDiff), ...
+            'Units', 'normalized', 'FontSize', 9);
+        yPos = yPos - lineHeight;
+
+        % Theta comparison
+        theta1 = restingMetrics.(cond1).relative.theta.mean;
+        theta2 = restingMetrics.(cond2).relative.theta.mean;
+        thetaDiff = theta1 - theta2;
+        text(ax4, 0.08, yPos, sprintf('Theta: %.2f%% (%s) vs %.2f%% (%s) → %+.2f%%', ...
+            theta1, cond1, theta2, cond2, thetaDiff), ...
+            'Units', 'normalized', 'FontSize', 9);
+        yPos = yPos - lineHeight * 1.5;
+
+        % Clinical indicators
+        text(ax4, 0.05, yPos, 'Clinical Ratios:', ...
+            'Units', 'normalized', 'FontSize', 11, 'FontWeight', 'bold');
         yPos = yPos - lineHeight;
 
         for condIdx = 1:numConds
@@ -195,9 +241,25 @@ function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4)
             alphaRel = restingMetrics.(cond).relative.alpha.mean;
             thetaRel = restingMetrics.(cond).relative.theta.mean;
             ratio = alphaRel / thetaRel;
-            text(ax4, 0.15, yPos, sprintf('%s Alpha/Theta: %.2f', cond, ratio), ...
-                'Units', 'normalized', 'FontSize', 10);
+            text(ax4, 0.08, yPos, sprintf('%s - Alpha/Theta: %.2f', cond, ratio), ...
+                'Units', 'normalized', 'FontSize', 9);
             yPos = yPos - lineHeight;
         end
+        yPos = yPos - lineHeight * 0.5;
+
+        % Interpretation note
+        text(ax4, 0.05, yPos, 'Interpretation:', ...
+            'Units', 'normalized', 'FontSize', 10, 'FontWeight', 'bold', 'Color', [0.2 0.5 0.2]);
+        yPos = yPos - lineHeight;
+
+        if alphaDiff > 5
+            interpText = sprintf('✓ Strong alpha suppression with %s (%+.1f%%) - Normal pattern', cond2, -alphaDiff);
+        elseif alphaDiff > 2
+            interpText = sprintf('✓ Moderate alpha suppression with %s (%+.1f%%)', cond2, -alphaDiff);
+        else
+            interpText = sprintf('⚠ Weak alpha suppression (%+.1f%%) - May indicate drowsiness', -alphaDiff);
+        end
+        text(ax4, 0.08, yPos, interpText, ...
+            'Units', 'normalized', 'FontSize', 9, 'Color', [0.2 0.5 0.2]);
     end
 end
