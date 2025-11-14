@@ -1106,11 +1106,9 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
                     timeWindow = [-0.2, 0.8];
                     app.EpochedData = epochEEGByEventsUniversal(EEG, app.SelectedEvents, ...
                         timeWindow, structure, discovery, app.SelectedFields);
-                    fprintf('Extracted %d epoch types
-', length(app.EpochedData));
+                    fprintf('Extracted %d epoch types\n', length(app.EpochedData));
                 catch ME
-                    fprintf('Epoch extraction failed: %s
-', ME.message);
+                    fprintf('Epoch extraction failed: %s\n', ME.message);
                     app.EpochedData = [];
                 end
             else
