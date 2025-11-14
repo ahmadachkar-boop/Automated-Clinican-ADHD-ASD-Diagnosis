@@ -583,9 +583,6 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
 
             % Initialize event visualization storage
             app.EventColumns = {};
-
-            % Initialize epoch definitions
-            app.EpochDefinitions = {};
         end
 
         function showUploadScreen(app)
@@ -711,10 +708,6 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
                     app.EpochListLabel.Visible = 'on';
                     app.EpochListBox.Visible = 'on';
                     app.RemoveEpochButton.Visible = 'on';
-
-                    % Clear any previous epoch definitions when changing field
-                    app.EpochDefinitions = {};
-                    app.EpochListBox.Items = {};
 
                     fprintf('✓ Found %d unique marker types\n', length(markerItems));
                 else
@@ -986,15 +979,15 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
         end
 
         function startProcessing(app)
-            % Check if user defined any epochs
-            if ~isempty(app.EpochDefinitions)
-                fprintf('User defined %d epoch type(s) for analysis:\n', length(app.EpochDefinitions));
-                for i = 1:length(app.EpochDefinitions)
-                    def = app.EpochDefinitions{i};
-                    fprintf('  %d. %s (from %s to %s)\n', i, def.name, def.startMarker, def.endMarker);
+            % Check if user defined any marker pairs
+            if ~isempty(app.StartMarkerTypes)
+                fprintf('User defined %d marker pair(s) for analysis:\n', length(app.StartMarkerTypes));
+                for i = 1:length(app.StartMarkerTypes)
+                    fprintf('  %d. %s: %s → %s\n', i, app.SegmentConditions{i}, ...
+                        app.StartMarkerTypes{i}, app.EndMarkerTypes{i});
                 end
             else
-                fprintf('No epochs defined - will only perform continuous data analysis\n');
+                fprintf('No marker pairs defined - will only perform continuous data analysis\n');
             end
 
             % Show processing screen
@@ -1540,21 +1533,28 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             summary{end+1} = sprintf('  Sampling Rate: %.0f Hz', metrics.sampling_rate);
             summary{end+1} = '';
 
-            % Epoch Info
-            if ~isempty(app.EpochDefinitions)
+            % Segment Info
+            if ~isempty(app.StartMarkerTypes)
                 summary{end+1} = '─────────────────────────────────────────────────────────────────';
-                summary{end+1} = '  EPOCH ANALYSIS';
+                summary{end+1} = '  RESTING STATE SEGMENTS';
                 summary{end+1} = '─────────────────────────────────────────────────────────────────';
-                summary{end+1} = sprintf('  Epochs Defined: %d', length(app.EpochDefinitions));
-                for i = 1:length(app.EpochDefinitions)
-                    def = app.EpochDefinitions{i};
-                    summary{end+1} = sprintf('    %d. %s (%s → %s)', i, def.name, def.startMarker, def.endMarker);
+                summary{end+1} = sprintf('  Marker Pairs Defined: %d', length(app.StartMarkerTypes));
+                for i = 1:length(app.StartMarkerTypes)
+                    summary{end+1} = sprintf('    %d. %s: %s → %s', i, app.SegmentConditions{i}, ...
+                        app.StartMarkerTypes{i}, app.EndMarkerTypes{i});
                 end
-                if ~isempty(app.EpochedData)
-                    summary{end+1} = sprintf('  Extracted Epochs: %d types', length(app.EpochedData));
-                    for i = 1:length(app.EpochedData)
-                        ep = app.EpochedData(i);
-                        summary{end+1} = sprintf('    • %s: %d trials', ep.eventType, ep.numEpochs);
+                if ~isempty(app.SegmentData)
+                    summary{end+1} = sprintf('  Extracted Segments: %d total', length(app.SegmentData));
+
+                    % Group by condition
+                    conditions = unique({app.SegmentData.condition});
+                    for i = 1:length(conditions)
+                        cond = conditions{i};
+                        condMask = strcmp({app.SegmentData.condition}, cond);
+                        numSegs = sum(condMask);
+                        totalDur = sum([app.SegmentData(condMask).duration]);
+                        summary{end+1} = sprintf('    • %s: %d segments (%.2f sec total)', ...
+                            cond, numSegs, totalDur);
                     end
                 end
                 summary{end+1} = '';
@@ -1624,24 +1624,14 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
         end
 
         function detectAndDisplayEvents(app)
-            % Analyze marker-pair epochs if user defined them
+            % For RestingStateAnalyzer, segments are already extracted during processing
+            % Just hide the event panel as it's not used for resting state analysis
             try
-                % Re-detect events on cleaned data
-                app.EventInfo = detectEEGEvents(app.EEGClean);
-
-                % Hide the old EventPanel (not used in marker-pair system)
+                % Hide the event panel (not used in resting state analysis)
                 app.EventPanel.Visible = 'off';
 
-                % If user defined epoch pairs, analyze them automatically
-                if app.EventInfo.hasEvents && ~isempty(app.EpochDefinitions)
-                    fprintf('\nAnalyzing marker-pair epochs...\n');
-
-                    % Epoch data using marker pairs
-                    analyzeMarkerPairEpochs(app);
-                else
-                    % Hide epoch panel if no epochs defined
-                    app.EpochPanel.Visible = 'off';
-                end
+                % Note: Segments are already extracted in Stage 6 of processing
+                % No additional event detection needed here
             catch ME
                 warning('Event analysis failed: %s', ME.message);
                 app.EpochPanel.Visible = 'off';
@@ -2108,113 +2098,14 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             end
         end
 
-        function analyzeMarkerPairEpochs(app)
-            % Epoch data using marker pairs and display results
-            try
-                % Epoch the data using marker pairs
-                fprintf('\n=== Marker-Pair Epoch Analysis ===\n');
-                app.EpochedData = epochEEGByMarkerPairs(app.EEGClean, app.EpochDefinitions);
+        % Legacy functions from EEGQualityAnalyzer - Not used in RestingStateAnalyzer
+        % (Kept for compatibility but commented out to avoid errors)
 
-                if isempty(app.EpochedData)
-                    fprintf('No valid epochs found\n');
-                    return;
-                end
-
-                % Show epoch panel
-                app.EpochPanel.Visible = 'on';
-
-                % Generate epoch visualizations
-                generateEpochVisualizations(app);
-
-            catch ME
-                warning('Error during marker-pair epoch analysis: %s', ME.message);
-                fprintf('Error: %s\n', ME.message);
-            end
-        end
-
-        function hideEpochBuilder(app)
-            % Hide all epoch builder UI elements
-            app.EpochBuilderLabel.Visible = 'off';
-            app.StartMarkerLabel.Visible = 'off';
-            app.StartMarkerDropdown.Visible = 'off';
-            app.EndMarkerLabel.Visible = 'off';
-            app.EndMarkerDropdown.Visible = 'off';
-            app.EpochNameLabel.Visible = 'off';
-            app.EpochNameField.Visible = 'off';
-            app.AddEpochButton.Visible = 'off';
-            app.EpochListLabel.Visible = 'off';
-            app.EpochListBox.Visible = 'off';
-            app.RemoveEpochButton.Visible = 'off';
-        end
-
-        function addEpochDefinition(app)
-            % Add a new epoch definition to the list
-            startMarker = app.StartMarkerDropdown.Value;
-            endMarker = app.EndMarkerDropdown.Value;
-            epochName = app.EpochNameField.Value;
-
-            % Generate default name if empty
-            if isempty(epochName)
-                epochName = sprintf('%s → %s', startMarker, endMarker);
-            end
-
-            % Create epoch definition struct
-            epochDef = struct();
-            epochDef.startMarker = startMarker;
-            epochDef.endMarker = endMarker;
-            epochDef.name = epochName;
-
-            % Add to list
-            app.EpochDefinitions{end+1} = epochDef;
-
-            % Update listbox
-            updateEpochListBox(app);
-
-            % Clear name field for next entry
-            app.EpochNameField.Value = '';
-
-            fprintf('Added epoch definition: %s (from %s to %s)\n', ...
-                epochName, startMarker, endMarker);
-        end
-
-        function removeEpochDefinition(app)
-            % Remove selected epoch definition from the list
-            selectedIdx = find(strcmp(app.EpochListBox.Items, app.EpochListBox.Value));
-
-            if isempty(selectedIdx)
-                return;
-            end
-
-            % Remove from list
-            app.EpochDefinitions(selectedIdx) = [];
-
-            % Update listbox
-            updateEpochListBox(app);
-
-            fprintf('Removed epoch definition\n');
-        end
-
-        function updateEpochListBox(app)
-            % Update the epoch list box with current definitions
-            if isempty(app.EpochDefinitions)
-                app.EpochListBox.Items = {};
-                return;
-            end
-
-            items = cell(length(app.EpochDefinitions), 1);
-            for i = 1:length(app.EpochDefinitions)
-                def = app.EpochDefinitions{i};
-                items{i} = sprintf('%d. %s (%s → %s)', ...
-                    i, def.name, def.startMarker, def.endMarker);
-            end
-
-            app.EpochListBox.Items = items;
-
-            % Select first item by default
-            if ~isempty(items)
-                app.EpochListBox.Value = items{1};
-            end
-        end
+        % function analyzeMarkerPairEpochs(app)
+        % function hideEpochBuilder(app)
+        % function addEpochDefinition(app)
+        % function removeEpochDefinition(app)
+        % function updateEpochListBox(app)
 
     end
 end
