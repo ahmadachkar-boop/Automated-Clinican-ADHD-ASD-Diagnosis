@@ -142,52 +142,67 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
 
         function centerPanels(app)
             % Center all panels horizontally and vertically in the figure
+            % Scale panels to fit within screen if needed
             figWidth = app.UIFigure.Position(3);
             figHeight = app.UIFigure.Position(4);
 
-            % Upload Panel - 1200x600
-            uploadWidth = 1200;
-            uploadHeight = 600;
-            if figWidth > uploadWidth
-                uploadX = (figWidth - uploadWidth) / 2;
-            else
-                uploadX = 10;  % Minimum margin
+            % Define margins for spacing
+            margin = 40;  % 40px margin on all sides
+            maxWidth = figWidth - (2 * margin);
+            maxHeight = figHeight - (2 * margin);
+
+            % Upload Panel - target 1200x600, aspect ratio 2:1
+            uploadTargetWidth = 1200;
+            uploadTargetHeight = 600;
+            uploadAspect = uploadTargetWidth / uploadTargetHeight;
+
+            % Scale to fit within available space
+            uploadWidth = min(uploadTargetWidth, maxWidth);
+            uploadHeight = uploadWidth / uploadAspect;
+            if uploadHeight > maxHeight
+                uploadHeight = maxHeight;
+                uploadWidth = uploadHeight * uploadAspect;
             end
-            if figHeight > uploadHeight
-                uploadY = (figHeight - uploadHeight) / 2;
-            else
-                uploadY = 10;
-            end
+
+            % Center the panel
+            uploadX = (figWidth - uploadWidth) / 2;
+            uploadY = (figHeight - uploadHeight) / 2;
             app.UploadPanel.Position = [uploadX uploadY uploadWidth uploadHeight];
 
-            % Processing Panel - 1200x1200
-            procWidth = 1200;
-            procHeight = 1200;
-            if figWidth > procWidth
-                procX = (figWidth - procWidth) / 2;
-            else
-                procX = 10;
+            % Processing Panel - target 1200x1200, aspect ratio 1:1
+            procTargetWidth = 1200;
+            procTargetHeight = 1200;
+            procAspect = procTargetWidth / procTargetHeight;
+
+            % Scale to fit within available space
+            procWidth = min(procTargetWidth, maxWidth);
+            procHeight = procWidth / procAspect;
+            if procHeight > maxHeight
+                procHeight = maxHeight;
+                procWidth = procHeight * procAspect;
             end
-            if figHeight > procHeight
-                procY = (figHeight - procHeight) / 2;
-            else
-                procY = 10;
-            end
+
+            % Center the panel
+            procX = (figWidth - procWidth) / 2;
+            procY = (figHeight - procHeight) / 2;
             app.ProcessingPanel.Position = [procX procY procWidth procHeight];
 
-            % Results Panel - 1200x900
-            resultsWidth = 1200;
-            resultsHeight = 900;
-            if figWidth > resultsWidth
-                resultsX = (figWidth - resultsWidth) / 2;
-            else
-                resultsX = 10;
+            % Results Panel - target 1200x900, aspect ratio 4:3
+            resultsTargetWidth = 1200;
+            resultsTargetHeight = 900;
+            resultsAspect = resultsTargetWidth / resultsTargetHeight;
+
+            % Scale to fit within available space
+            resultsWidth = min(resultsTargetWidth, maxWidth);
+            resultsHeight = resultsWidth / resultsAspect;
+            if resultsHeight > maxHeight
+                resultsHeight = maxHeight;
+                resultsWidth = resultsHeight * resultsAspect;
             end
-            if figHeight > resultsHeight
-                resultsY = (figHeight - resultsHeight) / 2;
-            else
-                resultsY = 10;
-            end
+
+            % Center the panel
+            resultsX = (figWidth - resultsWidth) / 2;
+            resultsY = (figHeight - resultsHeight) / 2;
             app.ResultsPanel.Position = [resultsX resultsY resultsWidth resultsHeight];
         end
 
