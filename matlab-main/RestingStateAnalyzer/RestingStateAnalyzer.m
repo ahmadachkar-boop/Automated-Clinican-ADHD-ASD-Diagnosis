@@ -154,7 +154,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             figHeight = app.UIFigure.Position(4);
 
             % Define margins for spacing
-            margin = 40;  % 40px margin on all sides
+            margin = 15;  % 15px margin on all sides
             maxWidth = figWidth - (2 * margin);
             maxHeight = figHeight - (2 * margin);
 
