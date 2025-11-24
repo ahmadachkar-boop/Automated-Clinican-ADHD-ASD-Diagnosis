@@ -219,64 +219,80 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.UploadPanel.Position = [1 100 panelWidth panelHeight];  % Temporary position, will be centered
             app.UploadPanel.BackgroundColor = [1 1 1];
             app.UploadPanel.BorderType = 'none';
-            % Title - centered in 1200px panel
+
+            % Title - centered, using normalized units
             app.TitleLabel = uilabel(app.UploadPanel);
-            app.TitleLabel.Position = [300 500 600 50];  % Centered: (1200-600)/2 = 300
+            app.TitleLabel.Position = [0.25 0.833 0.5 0.083];
+            app.TitleLabel.Units = 'normalized';
             app.TitleLabel.Text = 'Resting State Analyzer';
             app.TitleLabel.FontSize = 36;
             app.TitleLabel.FontWeight = 'bold';
             app.TitleLabel.FontColor = [0.2 0.3 0.6];
             app.TitleLabel.HorizontalAlignment = 'center';
-            % Subtitle - centered in 1200px panel
+
+            % Subtitle - centered, using normalized units
             app.SubtitleLabel = uilabel(app.UploadPanel);
-            app.SubtitleLabel.Position = [100 460 1000 30];  % Centered: (1200-1000)/2 = 100
+            app.SubtitleLabel.Position = [0.083 0.767 0.833 0.05];
+            app.SubtitleLabel.Units = 'normalized';
             app.SubtitleLabel.Text = 'Continuous EEG Segment Analysis | Eyes Open/Closed Comparison';
             app.SubtitleLabel.FontSize = 14;
             app.SubtitleLabel.FontColor = [0.4 0.5 0.6];
             app.SubtitleLabel.HorizontalAlignment = 'center';
-            % Browse Button - centered in 1200px panel
+
+            % Browse Button - centered, using normalized units
             app.BrowseButton = uibutton(app.UploadPanel, 'push');
-            app.BrowseButton.Position = [450 370 300 50];  % Centered: (1200-300)/2 = 450
+            app.BrowseButton.Position = [0.375 0.617 0.25 0.083];
+            app.BrowseButton.Units = 'normalized';
             app.BrowseButton.Text = 'Select EEG File';
             app.BrowseButton.FontSize = 18;
             app.BrowseButton.BackgroundColor = [0.3 0.5 0.8];
             app.BrowseButton.FontColor = [1 1 1];
             app.BrowseButton.ButtonPushedFcn = @(btn,event) browseFile(app);
-            % File info label - centered in 1200px panel
+
+            % File info label - centered, using normalized units
             app.FileInfoLabel = uilabel(app.UploadPanel);
-            app.FileInfoLabel.Position = [100 320 1000 30];  % Centered: (1200-1000)/2 = 100
+            app.FileInfoLabel.Position = [0.083 0.533 0.833 0.05];
+            app.FileInfoLabel.Units = 'normalized';
             app.FileInfoLabel.Text = 'No file selected';
             app.FileInfoLabel.FontSize = 12;
             app.FileInfoLabel.FontColor = [0.5 0.5 0.5];
             app.FileInfoLabel.HorizontalAlignment = 'center';
-            % Event Selection Button - centered in 1200px panel
+
+            % Event Selection Button - centered, using normalized units
             app.EventSelectionButton = uibutton(app.UploadPanel, 'push');
-            app.EventSelectionButton.Position = [450 240 300 50];  % Centered: (1200-300)/2 = 450
+            app.EventSelectionButton.Position = [0.375 0.4 0.25 0.083];
+            app.EventSelectionButton.Units = 'normalized';
             app.EventSelectionButton.Text = 'Select Start/End Markers';
             app.EventSelectionButton.FontSize = 18;
             app.EventSelectionButton.BackgroundColor = [0.5 0.4 0.7];
             app.EventSelectionButton.FontColor = [1 1 1];
             app.EventSelectionButton.Enable = 'off';
             app.EventSelectionButton.ButtonPushedFcn = @(btn,event) selectMarkersManually(app);
-            % Event Selection Label - centered in 1200px panel
+
+            % Event Selection Label - centered, using normalized units
             app.EventSelectionLabel = uilabel(app.UploadPanel);
-            app.EventSelectionLabel.Position = [100 190 1000 30];  % Centered: (1200-1000)/2 = 100
+            app.EventSelectionLabel.Position = [0.083 0.317 0.833 0.05];
+            app.EventSelectionLabel.Units = 'normalized';
             app.EventSelectionLabel.Text = 'No markers selected';
             app.EventSelectionLabel.FontSize = 12;
             app.EventSelectionLabel.FontColor = [0.5 0.5 0.5];
             app.EventSelectionLabel.HorizontalAlignment = 'center';
-            % Start Button - centered in 1200px panel
+
+            % Start Button - centered, using normalized units
             app.StartButton = uibutton(app.UploadPanel, 'push');
-            app.StartButton.Position = [450 100 300 50];  % Centered: (1200-300)/2 = 450
+            app.StartButton.Position = [0.375 0.167 0.25 0.083];
+            app.StartButton.Units = 'normalized';
             app.StartButton.Text = 'Start Analysis';
             app.StartButton.FontSize = 18;
             app.StartButton.BackgroundColor = [0.2 0.7 0.3];
             app.StartButton.FontColor = [1 1 1];
             app.StartButton.Enable = 'off';
             app.StartButton.ButtonPushedFcn = @(btn,event) startAnalysis(app);
-            % Instructions - centered in 1200px panel
+
+            % Instructions - centered, using normalized units
             instrLabel = uilabel(app.UploadPanel);
-            instrLabel.Position = [100 40 1000 40];  % Centered: (1200-1000)/2 = 100
+            instrLabel.Position = [0.083 0.067 0.833 0.067];
+            instrLabel.Units = 'normalized';
             instrLabel.Text = sprintf('Supports: .mff, .set, .edf formats\nResting state analysis • Continuous segment extraction');
             instrLabel.FontSize = 10;
             instrLabel.FontColor = [0.6 0.6 0.6];
