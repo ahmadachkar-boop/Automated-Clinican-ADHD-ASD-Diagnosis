@@ -115,7 +115,6 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
         function createComponents(app)
             % Create UIFigure - Fullscreen
             app.UIFigure = uifigure('Visible', 'off');
-            app.UIFigure.WindowState = 'maximized';
             app.UIFigure.Name = 'Resting State Analyzer';
             app.UIFigure.Color = [0.95 0.96 0.97];
             app.UIFigure.Scrollable = 'on';
@@ -133,11 +132,17 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             % Create Event Analysis Panel (hidden initially)
             createEventPanel(app);
 
-            % Center panels initially
-            centerPanels(app);
-
-            % Make figure visible
+            % Make figure visible first
             app.UIFigure.Visible = 'on';
+
+            % Then maximize (this will trigger SizeChangedFcn)
+            app.UIFigure.WindowState = 'maximized';
+
+            % Force MATLAB to update the figure dimensions
+            drawnow;
+
+            % Center panels with correct maximized dimensions
+            centerPanels(app);
         end
 
         function centerPanels(app)
