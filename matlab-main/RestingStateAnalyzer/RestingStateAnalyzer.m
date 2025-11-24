@@ -118,6 +118,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.UIFigure.Name = 'Resting State Analyzer';
             app.UIFigure.Color = [0.95 0.96 0.97];
             app.UIFigure.Scrollable = 'on';
+            app.UIFigure.AutoResizeChildren = 'off';
             app.UIFigure.SizeChangedFcn = @(fig, event) centerPanels(app);
 
             % Create Upload Panel
@@ -174,6 +175,9 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             uploadY = (figHeight - uploadHeight) / 2;
             app.UploadPanel.Position = [uploadX uploadY uploadWidth uploadHeight];
 
+            % Scale Upload Panel internal UI elements
+            scaleUploadPanelContent(app, uploadWidth, uploadHeight);
+
             % Processing Panel - target 1200x1200, aspect ratio 1:1
             procTargetWidth = 1200;
             procTargetHeight = 1200;
@@ -211,6 +215,41 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.ResultsPanel.Position = [resultsX resultsY resultsWidth resultsHeight];
         end
 
+        function scaleUploadPanelContent(app, panelWidth, panelHeight)
+            % Scale UI elements inside Upload Panel based on panel size
+            % Target dimensions: 1200x600
+            targetWidth = 1200;
+            targetHeight = 600;
+
+            % Calculate scale factors
+            scaleX = panelWidth / targetWidth;
+            scaleY = panelHeight / targetHeight;
+
+            % Scale Title (300, 500, 600, 50)
+            app.TitleLabel.Position = [300*scaleX 500*scaleY 600*scaleX 50*scaleY];
+
+            % Scale Subtitle (100, 460, 1000, 30)
+            app.SubtitleLabel.Position = [100*scaleX 460*scaleY 1000*scaleX 30*scaleY];
+
+            % Scale Browse Button (450, 370, 300, 50)
+            app.BrowseButton.Position = [450*scaleX 370*scaleY 300*scaleX 50*scaleY];
+
+            % Scale File Info Label (100, 320, 1000, 30)
+            app.FileInfoLabel.Position = [100*scaleX 320*scaleY 1000*scaleX 30*scaleY];
+
+            % Scale Event Selection Button (450, 240, 300, 50)
+            app.EventSelectionButton.Position = [450*scaleX 240*scaleY 300*scaleX 50*scaleY];
+
+            % Scale Event Selection Label (100, 190, 1000, 30)
+            app.EventSelectionLabel.Position = [100*scaleX 190*scaleY 1000*scaleX 30*scaleY];
+
+            % Scale Start Button (450, 100, 300, 50)
+            app.StartButton.Position = [450*scaleX 100*scaleY 300*scaleX 50*scaleY];
+
+            % Scale Instructions Label (100, 40, 1000, 40)
+            app.InstructionsLabel.Position = [100*scaleX 40*scaleY 1000*scaleX 40*scaleY];
+        end
+
         function createUploadPanel(app)
             app.UploadPanel = uipanel(app.UIFigure);
             % Use figure-relative coordinates (will be centered by centerPanels)
@@ -220,48 +259,43 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.UploadPanel.BackgroundColor = [1 1 1];
             app.UploadPanel.BorderType = 'none';
 
-            % Title - centered, using normalized units
+            % Title - centered in panel
             app.TitleLabel = uilabel(app.UploadPanel);
-            app.TitleLabel.Position = [0.25 0.833 0.5 0.083];
-            app.TitleLabel.Units = 'normalized';
+            app.TitleLabel.Position = [300 500 600 50];
             app.TitleLabel.Text = 'Resting State Analyzer';
             app.TitleLabel.FontSize = 36;
             app.TitleLabel.FontWeight = 'bold';
             app.TitleLabel.FontColor = [0.2 0.3 0.6];
             app.TitleLabel.HorizontalAlignment = 'center';
 
-            % Subtitle - centered, using normalized units
+            % Subtitle - centered in panel
             app.SubtitleLabel = uilabel(app.UploadPanel);
-            app.SubtitleLabel.Position = [0.083 0.767 0.833 0.05];
-            app.SubtitleLabel.Units = 'normalized';
+            app.SubtitleLabel.Position = [100 460 1000 30];
             app.SubtitleLabel.Text = 'Continuous EEG Segment Analysis | Eyes Open/Closed Comparison';
             app.SubtitleLabel.FontSize = 14;
             app.SubtitleLabel.FontColor = [0.4 0.5 0.6];
             app.SubtitleLabel.HorizontalAlignment = 'center';
 
-            % Browse Button - centered, using normalized units
+            % Browse Button - centered in panel
             app.BrowseButton = uibutton(app.UploadPanel, 'push');
-            app.BrowseButton.Position = [0.375 0.617 0.25 0.083];
-            app.BrowseButton.Units = 'normalized';
+            app.BrowseButton.Position = [450 370 300 50];
             app.BrowseButton.Text = 'Select EEG File';
             app.BrowseButton.FontSize = 18;
             app.BrowseButton.BackgroundColor = [0.3 0.5 0.8];
             app.BrowseButton.FontColor = [1 1 1];
             app.BrowseButton.ButtonPushedFcn = @(btn,event) browseFile(app);
 
-            % File info label - centered, using normalized units
+            % File info label - centered in panel
             app.FileInfoLabel = uilabel(app.UploadPanel);
-            app.FileInfoLabel.Position = [0.083 0.533 0.833 0.05];
-            app.FileInfoLabel.Units = 'normalized';
+            app.FileInfoLabel.Position = [100 320 1000 30];
             app.FileInfoLabel.Text = 'No file selected';
             app.FileInfoLabel.FontSize = 12;
             app.FileInfoLabel.FontColor = [0.5 0.5 0.5];
             app.FileInfoLabel.HorizontalAlignment = 'center';
 
-            % Event Selection Button - centered, using normalized units
+            % Event Selection Button - centered in panel
             app.EventSelectionButton = uibutton(app.UploadPanel, 'push');
-            app.EventSelectionButton.Position = [0.375 0.4 0.25 0.083];
-            app.EventSelectionButton.Units = 'normalized';
+            app.EventSelectionButton.Position = [450 240 300 50];
             app.EventSelectionButton.Text = 'Select Start/End Markers';
             app.EventSelectionButton.FontSize = 18;
             app.EventSelectionButton.BackgroundColor = [0.5 0.4 0.7];
@@ -269,19 +303,17 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.EventSelectionButton.Enable = 'off';
             app.EventSelectionButton.ButtonPushedFcn = @(btn,event) selectMarkersManually(app);
 
-            % Event Selection Label - centered, using normalized units
+            % Event Selection Label - centered in panel
             app.EventSelectionLabel = uilabel(app.UploadPanel);
-            app.EventSelectionLabel.Position = [0.083 0.317 0.833 0.05];
-            app.EventSelectionLabel.Units = 'normalized';
+            app.EventSelectionLabel.Position = [100 190 1000 30];
             app.EventSelectionLabel.Text = 'No markers selected';
             app.EventSelectionLabel.FontSize = 12;
             app.EventSelectionLabel.FontColor = [0.5 0.5 0.5];
             app.EventSelectionLabel.HorizontalAlignment = 'center';
 
-            % Start Button - centered, using normalized units
+            % Start Button - centered in panel
             app.StartButton = uibutton(app.UploadPanel, 'push');
-            app.StartButton.Position = [0.375 0.167 0.25 0.083];
-            app.StartButton.Units = 'normalized';
+            app.StartButton.Position = [450 100 300 50];
             app.StartButton.Text = 'Start Analysis';
             app.StartButton.FontSize = 18;
             app.StartButton.BackgroundColor = [0.2 0.7 0.3];
@@ -289,14 +321,13 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.StartButton.Enable = 'off';
             app.StartButton.ButtonPushedFcn = @(btn,event) startAnalysis(app);
 
-            % Instructions - centered, using normalized units
-            instrLabel = uilabel(app.UploadPanel);
-            instrLabel.Position = [0.083 0.067 0.833 0.067];
-            instrLabel.Units = 'normalized';
-            instrLabel.Text = sprintf('Supports: .mff, .set, .edf formats\nResting state analysis • Continuous segment extraction');
-            instrLabel.FontSize = 10;
-            instrLabel.FontColor = [0.6 0.6 0.6];
-            instrLabel.HorizontalAlignment = 'center';
+            % Instructions - centered in panel
+            app.InstructionsLabel = uilabel(app.UploadPanel);
+            app.InstructionsLabel.Position = [100 40 1000 40];
+            app.InstructionsLabel.Text = sprintf('Supports: .mff, .set, .edf formats\nResting state analysis • Continuous segment extraction');
+            app.InstructionsLabel.FontSize = 10;
+            app.InstructionsLabel.FontColor = [0.6 0.6 0.6];
+            app.InstructionsLabel.HorizontalAlignment = 'center';
         end
 
 
