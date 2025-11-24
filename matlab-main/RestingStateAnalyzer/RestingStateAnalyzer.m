@@ -18,6 +18,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
         EventSelectionButton    matlab.ui.control.Button
         EventSelectionLabel     matlab.ui.control.Label
         StartButton             matlab.ui.control.Button
+        InstructionsLabel       matlab.ui.control.Label
 
         % Processing Screen Components
         ProcessingLabel         matlab.ui.control.Label
