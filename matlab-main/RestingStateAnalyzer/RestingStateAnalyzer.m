@@ -141,91 +141,122 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
         end
 
         function centerPanels(app)
-            % Center all panels horizontally in the figure
+            % Center all panels horizontally and vertically in the figure
             figWidth = app.UIFigure.Position(3);
-            panelWidth = 1200;
+            figHeight = app.UIFigure.Position(4);
 
-            if figWidth > panelWidth
-                xPos = (figWidth - panelWidth) / 2;
+            % Upload Panel - 1200x600
+            uploadWidth = 1200;
+            uploadHeight = 600;
+            if figWidth > uploadWidth
+                uploadX = (figWidth - uploadWidth) / 2;
             else
-                xPos = 1;
+                uploadX = 10;  % Minimum margin
             end
+            if figHeight > uploadHeight
+                uploadY = (figHeight - uploadHeight) / 2;
+            else
+                uploadY = 10;
+            end
+            app.UploadPanel.Position = [uploadX uploadY uploadWidth uploadHeight];
 
-            % Center each panel
-            app.UploadPanel.Position(1) = xPos;
-            app.ProcessingPanel.Position(1) = xPos;
-            app.ResultsPanel.Position(1) = xPos;
+            % Processing Panel - 1200x1200
+            procWidth = 1200;
+            procHeight = 1200;
+            if figWidth > procWidth
+                procX = (figWidth - procWidth) / 2;
+            else
+                procX = 10;
+            end
+            if figHeight > procHeight
+                procY = (figHeight - procHeight) / 2;
+            else
+                procY = 10;
+            end
+            app.ProcessingPanel.Position = [procX procY procWidth procHeight];
+
+            % Results Panel - 1200x900
+            resultsWidth = 1200;
+            resultsHeight = 900;
+            if figWidth > resultsWidth
+                resultsX = (figWidth - resultsWidth) / 2;
+            else
+                resultsX = 10;
+            end
+            if figHeight > resultsHeight
+                resultsY = (figHeight - resultsHeight) / 2;
+            else
+                resultsY = 10;
+            end
+            app.ResultsPanel.Position = [resultsX resultsY resultsWidth resultsHeight];
         end
 
         function createUploadPanel(app)
             app.UploadPanel = uipanel(app.UIFigure);
-            % Center panel with safe margins
-            screenSize = get(0, 'ScreenSize');
-            panelWidth = min(1400, screenSize(3) - 100);  % Ensure 50px margin on each side
+            % Use figure-relative coordinates (will be centered by centerPanels)
+            panelWidth = 1200;
             panelHeight = 600;
-            panelX = max(50, (screenSize(3) - panelWidth) / 2);  % Center, with minimum 50px from left
-            panelY = (screenSize(4) - panelHeight) / 2;
-            app.UploadPanel.Position = [panelX panelY panelWidth panelHeight];
+            app.UploadPanel.Position = [1 100 panelWidth panelHeight];  % Temporary position, will be centered
             app.UploadPanel.BackgroundColor = [1 1 1];
             app.UploadPanel.BorderType = 'none';
-            % Title
+            % Title - centered in 1200px panel
             app.TitleLabel = uilabel(app.UploadPanel);
-            app.TitleLabel.Position = [200 500 600 50];
+            app.TitleLabel.Position = [300 500 600 50];  % Centered: (1200-600)/2 = 300
             app.TitleLabel.Text = 'Resting State Analyzer';
             app.TitleLabel.FontSize = 36;
             app.TitleLabel.FontWeight = 'bold';
             app.TitleLabel.FontColor = [0.2 0.3 0.6];
             app.TitleLabel.HorizontalAlignment = 'center';
-            % Subtitle
+            % Subtitle - centered in 1200px panel
             app.SubtitleLabel = uilabel(app.UploadPanel);
-            app.SubtitleLabel.Position = [150 460 700 30];
+            app.SubtitleLabel.Position = [100 460 1000 30];  % Centered: (1200-1000)/2 = 100
             app.SubtitleLabel.Text = 'Continuous EEG Segment Analysis | Eyes Open/Closed Comparison';
             app.SubtitleLabel.FontSize = 14;
             app.SubtitleLabel.FontColor = [0.4 0.5 0.6];
             app.SubtitleLabel.HorizontalAlignment = 'center';
-            % Browse Button
+            % Browse Button - centered in 1200px panel
             app.BrowseButton = uibutton(app.UploadPanel, 'push');
-            app.BrowseButton.Position = [350 370 300 50];
+            app.BrowseButton.Position = [450 370 300 50];  % Centered: (1200-300)/2 = 450
             app.BrowseButton.Text = 'Select EEG File';
             app.BrowseButton.FontSize = 18;
             app.BrowseButton.BackgroundColor = [0.3 0.5 0.8];
             app.BrowseButton.FontColor = [1 1 1];
             app.BrowseButton.ButtonPushedFcn = @(btn,event) browseFile(app);
-            % File info label
+            % File info label - centered in 1200px panel
             app.FileInfoLabel = uilabel(app.UploadPanel);
-            app.FileInfoLabel.Position = [100 320 800 30];
+            app.FileInfoLabel.Position = [100 320 1000 30];  % Centered: (1200-1000)/2 = 100
             app.FileInfoLabel.Text = 'No file selected';
             app.FileInfoLabel.FontSize = 12;
             app.FileInfoLabel.FontColor = [0.5 0.5 0.5];
             app.FileInfoLabel.HorizontalAlignment = 'center';
-            % Event Selection Button (for start-end markers)
+            % Event Selection Button - centered in 1200px panel
             app.EventSelectionButton = uibutton(app.UploadPanel, 'push');
-            app.EventSelectionButton.Position = [350 240 300 50];
+            app.EventSelectionButton.Position = [450 240 300 50];  % Centered: (1200-300)/2 = 450
             app.EventSelectionButton.Text = 'Select Start/End Markers';
             app.EventSelectionButton.FontSize = 18;
             app.EventSelectionButton.BackgroundColor = [0.5 0.4 0.7];
             app.EventSelectionButton.FontColor = [1 1 1];
             app.EventSelectionButton.Enable = 'off';
             app.EventSelectionButton.ButtonPushedFcn = @(btn,event) selectMarkersManually(app);
-            % Event Selection Label
+            % Event Selection Label - centered in 1200px panel
             app.EventSelectionLabel = uilabel(app.UploadPanel);
-            app.EventSelectionLabel.Position = [100 190 800 30];
+            app.EventSelectionLabel.Position = [100 190 1000 30];  % Centered: (1200-1000)/2 = 100
             app.EventSelectionLabel.Text = 'No markers selected';
             app.EventSelectionLabel.FontSize = 12;
             app.EventSelectionLabel.FontColor = [0.5 0.5 0.5];
             app.EventSelectionLabel.HorizontalAlignment = 'center';
-            % Start Button
+            % Start Button - centered in 1200px panel
             app.StartButton = uibutton(app.UploadPanel, 'push');
-            app.StartButton.Position = [350 100 300 50];
+            app.StartButton.Position = [450 100 300 50];  % Centered: (1200-300)/2 = 450
             app.StartButton.Text = 'Start Analysis';
             app.StartButton.FontSize = 18;
             app.StartButton.BackgroundColor = [0.2 0.7 0.3];
             app.StartButton.FontColor = [1 1 1];
             app.StartButton.Enable = 'off';
             app.StartButton.ButtonPushedFcn = @(btn,event) startAnalysis(app);
-            % Instructions
+            % Instructions - centered in 1200px panel
             instrLabel = uilabel(app.UploadPanel);
-            instrLabel.Position = [100 40 800 40];
+            instrLabel.Position = [100 40 1000 40];  % Centered: (1200-1000)/2 = 100
             instrLabel.Text = sprintf('Supports: .mff, .set, .edf formats\nResting state analysis • Continuous segment extraction');
             instrLabel.FontSize = 10;
             instrLabel.FontColor = [0.6 0.6 0.6];
