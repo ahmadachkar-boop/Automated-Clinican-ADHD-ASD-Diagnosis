@@ -1,6 +1,6 @@
-classdef EEGQualityAnalyzer < matlab.apps.AppBase
-    % EEG Quality Analyzer - Hands-free GUI for Clinicians
-    % Automatically processes and evaluates EEG data quality
+classdef RestingStateAnalyzer < matlab.apps.AppBase
+    % Resting State Analyzer - Automated Resting State EEG Analysis
+    % Processes continuous EEG segments with start-end marker pairs
 
     properties (Access = public)
         UIFigure                matlab.ui.Figure
@@ -82,8 +82,10 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         SelectedEvents          cell = {}
         SelectedFields          cell = {}
         EventFieldInfo          struct  % Detailed info about available event fields
-        EpochedData             struct
-        EpochDefinitions        cell  % Cell array of structs {startMarker, endMarker, name}
+        SegmentData             struct   % Continuous segments extracted between markers
+        StartMarkerTypes        cell = {}  % Start marker types (e.g., 'Eyes_Open_Start')
+        EndMarkerTypes          cell = {}  % End marker types (e.g., 'Eyes_Open_End')
+        SegmentConditions       cell = {}  % Condition labels (e.g., 'EyesOpen', 'EyesClosed')
         BadChannels             double = []  % Detected bad channels (not removed)
         BadChannelLabels        cell = {}
         RemovedComponents       double = []  % ICA components removed
@@ -96,7 +98,7 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
 
     methods (Access = public)
 
-        function app = EEGQualityAnalyzer
+        function app = RestingStateAnalyzer
             % Create and configure UIFigure
             createComponents(app);
 
@@ -114,7 +116,7 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             % Create UIFigure - Fullscreen
             app.UIFigure = uifigure('Visible', 'off');
             app.UIFigure.WindowState = 'maximized';
-            app.UIFigure.Name = 'EEG Quality Analyzer';
+            app.UIFigure.Name = 'Resting State Analyzer';
             app.UIFigure.Color = [0.95 0.96 0.97];
             app.UIFigure.Scrollable = 'on';
             app.UIFigure.SizeChangedFcn = @(fig, event) centerPanels(app);
@@ -139,92 +141,123 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         end
 
         function centerPanels(app)
-            % Center all panels horizontally in the figure
+            % Center all panels horizontally and vertically in the figure
             figWidth = app.UIFigure.Position(3);
-            panelWidth = 1200;
+            figHeight = app.UIFigure.Position(4);
 
-            if figWidth > panelWidth
-                xPos = (figWidth - panelWidth) / 2;
+            % Upload Panel - 1200x600
+            uploadWidth = 1200;
+            uploadHeight = 600;
+            if figWidth > uploadWidth
+                uploadX = (figWidth - uploadWidth) / 2;
             else
-                xPos = 1;
+                uploadX = 10;  % Minimum margin
             end
+            if figHeight > uploadHeight
+                uploadY = (figHeight - uploadHeight) / 2;
+            else
+                uploadY = 10;
+            end
+            app.UploadPanel.Position = [uploadX uploadY uploadWidth uploadHeight];
 
-            % Center each panel
-            app.UploadPanel.Position(1) = xPos;
-            app.ProcessingPanel.Position(1) = xPos;
-            app.ResultsPanel.Position(1) = xPos;
+            % Processing Panel - 1200x1200
+            procWidth = 1200;
+            procHeight = 1200;
+            if figWidth > procWidth
+                procX = (figWidth - procWidth) / 2;
+            else
+                procX = 10;
+            end
+            if figHeight > procHeight
+                procY = (figHeight - procHeight) / 2;
+            else
+                procY = 10;
+            end
+            app.ProcessingPanel.Position = [procX procY procWidth procHeight];
+
+            % Results Panel - 1200x900
+            resultsWidth = 1200;
+            resultsHeight = 900;
+            if figWidth > resultsWidth
+                resultsX = (figWidth - resultsWidth) / 2;
+            else
+                resultsX = 10;
+            end
+            if figHeight > resultsHeight
+                resultsY = (figHeight - resultsHeight) / 2;
+            else
+                resultsY = 10;
+            end
+            app.ResultsPanel.Position = [resultsX resultsY resultsWidth resultsHeight];
         end
 
         function createUploadPanel(app)
             app.UploadPanel = uipanel(app.UIFigure);
-            % Center panel with safe margins
-            screenSize = get(0, 'ScreenSize');
-            panelWidth = min(1400, screenSize(3) - 100);  % Ensure 50px margin on each side
+            % Use figure-relative coordinates (will be centered by centerPanels)
+            panelWidth = 1200;
             panelHeight = 600;
-            panelX = max(50, (screenSize(3) - panelWidth) / 2);  % Center, with minimum 50px from left
-            panelY = (screenSize(4) - panelHeight) / 2;
-            app.UploadPanel.Position = [panelX panelY panelWidth panelHeight];
+            app.UploadPanel.Position = [1 100 panelWidth panelHeight];  % Temporary position, will be centered
             app.UploadPanel.BackgroundColor = [1 1 1];
             app.UploadPanel.BorderType = 'none';
-            % Title
+            % Title - centered in 1200px panel
             app.TitleLabel = uilabel(app.UploadPanel);
-            app.TitleLabel.Position = [200 500 600 50];
-            app.TitleLabel.Text = 'EEG Quality Analyzer';
+            app.TitleLabel.Position = [300 500 600 50];  % Centered: (1200-600)/2 = 300
+            app.TitleLabel.Text = 'Resting State Analyzer';
             app.TitleLabel.FontSize = 36;
             app.TitleLabel.FontWeight = 'bold';
             app.TitleLabel.FontColor = [0.2 0.3 0.6];
             app.TitleLabel.HorizontalAlignment = 'center';
-            % Subtitle
+            % Subtitle - centered in 1200px panel
             app.SubtitleLabel = uilabel(app.UploadPanel);
-            app.SubtitleLabel.Position = [150 460 700 30];
-            app.SubtitleLabel.Text = 'Automated Quality Assessment with Manual Event Selection';
+            app.SubtitleLabel.Position = [100 460 1000 30];  % Centered: (1200-1000)/2 = 100
+            app.SubtitleLabel.Text = 'Continuous EEG Segment Analysis | Eyes Open/Closed Comparison';
             app.SubtitleLabel.FontSize = 14;
             app.SubtitleLabel.FontColor = [0.4 0.5 0.6];
             app.SubtitleLabel.HorizontalAlignment = 'center';
-            % Browse Button
+            % Browse Button - centered in 1200px panel
             app.BrowseButton = uibutton(app.UploadPanel, 'push');
-            app.BrowseButton.Position = [350 370 300 50];
+            app.BrowseButton.Position = [450 370 300 50];  % Centered: (1200-300)/2 = 450
             app.BrowseButton.Text = 'Select EEG File';
             app.BrowseButton.FontSize = 18;
             app.BrowseButton.BackgroundColor = [0.3 0.5 0.8];
             app.BrowseButton.FontColor = [1 1 1];
             app.BrowseButton.ButtonPushedFcn = @(btn,event) browseFile(app);
-            % File info label
+            % File info label - centered in 1200px panel
             app.FileInfoLabel = uilabel(app.UploadPanel);
-            app.FileInfoLabel.Position = [100 320 800 30];
+            app.FileInfoLabel.Position = [100 320 1000 30];  % Centered: (1200-1000)/2 = 100
             app.FileInfoLabel.Text = 'No file selected';
             app.FileInfoLabel.FontSize = 12;
             app.FileInfoLabel.FontColor = [0.5 0.5 0.5];
             app.FileInfoLabel.HorizontalAlignment = 'center';
-            % Event Selection Button
+            % Event Selection Button - centered in 1200px panel
             app.EventSelectionButton = uibutton(app.UploadPanel, 'push');
-            app.EventSelectionButton.Position = [350 240 300 50];
-            app.EventSelectionButton.Text = 'Select Events';
+            app.EventSelectionButton.Position = [450 240 300 50];  % Centered: (1200-300)/2 = 450
+            app.EventSelectionButton.Text = 'Select Start/End Markers';
             app.EventSelectionButton.FontSize = 18;
             app.EventSelectionButton.BackgroundColor = [0.5 0.4 0.7];
             app.EventSelectionButton.FontColor = [1 1 1];
             app.EventSelectionButton.Enable = 'off';
-            app.EventSelectionButton.ButtonPushedFcn = @(btn,event) selectEventsManually(app);
-            % Event Selection Label
+            app.EventSelectionButton.ButtonPushedFcn = @(btn,event) selectMarkersManually(app);
+            % Event Selection Label - centered in 1200px panel
             app.EventSelectionLabel = uilabel(app.UploadPanel);
-            app.EventSelectionLabel.Position = [100 190 800 30];
-            app.EventSelectionLabel.Text = 'No events selected';
+            app.EventSelectionLabel.Position = [100 190 1000 30];  % Centered: (1200-1000)/2 = 100
+            app.EventSelectionLabel.Text = 'No markers selected';
             app.EventSelectionLabel.FontSize = 12;
             app.EventSelectionLabel.FontColor = [0.5 0.5 0.5];
             app.EventSelectionLabel.HorizontalAlignment = 'center';
-            % Start Button
+            % Start Button - centered in 1200px panel
             app.StartButton = uibutton(app.UploadPanel, 'push');
-            app.StartButton.Position = [350 100 300 50];
+            app.StartButton.Position = [450 100 300 50];  % Centered: (1200-300)/2 = 450
             app.StartButton.Text = 'Start Analysis';
             app.StartButton.FontSize = 18;
             app.StartButton.BackgroundColor = [0.2 0.7 0.3];
             app.StartButton.FontColor = [1 1 1];
             app.StartButton.Enable = 'off';
             app.StartButton.ButtonPushedFcn = @(btn,event) startAnalysis(app);
-            % Instructions
+            % Instructions - centered in 1200px panel
             instrLabel = uilabel(app.UploadPanel);
-            instrLabel.Position = [100 40 800 40];
-            instrLabel.Text = sprintf('Supports: .mff, .set, .edf formats\nManual event selection • Step-by-step workflow');
+            instrLabel.Position = [100 40 1000 40];  % Centered: (1200-1000)/2 = 100
+            instrLabel.Text = sprintf('Supports: .mff, .set, .edf formats\nResting state analysis • Continuous segment extraction');
             instrLabel.FontSize = 10;
             instrLabel.FontColor = [0.6 0.6 0.6];
             instrLabel.HorizontalAlignment = 'center';
@@ -304,11 +337,11 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
                 '✓ Loading Data'
                 '✓ Filtering & Preprocessing'
                 '✓ Multi-Method Artifact Detection'
-                '✓ ICA with PCA Reduction'
+                '✓ ICA (Full Rank)'
                 '✓ Signal Cleaning (ICLabel 75%)'
-                '✓ Epoch Extraction'
+                '✓ Continuous Segment Extraction'
                 '✓ Enhanced Quality Evaluation'
-                '✓ Clinical Metrics Computation'
+                '✓ Resting State Band Power Analysis'
             };
 
             for i = 1:8
@@ -398,37 +431,34 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
 
             % === TAB 2: CLINICAL DIAGNOSTICS ===
             app.ClinicalTab = uitab(app.ResultsTabGroup);
-            app.ClinicalTab.Title = '🧠 Clinical Diagnostics';
+            app.ClinicalTab.Title = '📊 Condition Comparison';
+            app.ClinicalTab.Scrollable = 'on';  % Make tab itself scrollable
 
-            % Clinical Visualization Panel
+            % Clinical Visualization Panel (tall panel for scrolling)
             app.ClinicalPanel = uipanel(app.ClinicalTab);
-            app.ClinicalPanel.Position = [10 10 1070 520];
+            app.ClinicalPanel.Position = [10 10 1070 1200];  % Tall panel (1200px height) for scrolling
             app.ClinicalPanel.BackgroundColor = [1 1 1];
-            app.ClinicalPanel.BorderType = 'line';
-            app.ClinicalPanel.Title = 'Clinical Biomarkers (ADHD/ASD)';
-            app.ClinicalPanel.FontSize = 12;
-            app.ClinicalPanel.FontWeight = 'bold';
+            app.ClinicalPanel.BorderType = 'none';
 
-            % Theta/Beta Ratio Map
+            % Plot 1: Relative Band Powers (top left)
             app.ThetaBetaAxes = uiaxes(app.ClinicalPanel);
-            app.ThetaBetaAxes.Position = [30 220 300 280];
-            title(app.ThetaBetaAxes, 'Theta/Beta Ratio', 'FontSize', 11);
+            app.ThetaBetaAxes.Position = [30 830 480 320];  % Top row at Y=830
+            title(app.ThetaBetaAxes, 'Relative Band Powers', 'FontSize', 11);
 
-            % Multi-Band Power Distribution
+            % Plot 2: Absolute Band Powers (top right)
             app.MultiBandAxes = uiaxes(app.ClinicalPanel);
-            app.MultiBandAxes.Position = [380 220 300 280];
-            title(app.MultiBandAxes, 'Multi-Band Power', 'FontSize', 11);
+            app.MultiBandAxes.Position = [550 830 480 320];  % Top row at Y=830
+            title(app.MultiBandAxes, 'Absolute Band Powers', 'FontSize', 11);
 
-            % Hemispheric Asymmetry
+            % Plot 3: Band Power Differences (bottom left)
             app.AsymmetryAxes = uiaxes(app.ClinicalPanel);
-            app.AsymmetryAxes.Position = [730 220 300 280];
-            title(app.AsymmetryAxes, 'Hemispheric Asymmetry', 'FontSize', 11);
+            app.AsymmetryAxes.Position = [30 460 480 320];  % Bottom row at Y=460
+            title(app.AsymmetryAxes, 'Band Power Differences', 'FontSize', 11);
 
-            % Frequency Band Bar Chart
+            % Plot 4: Detailed Statistics (bottom right)
             app.BandBarAxes = uiaxes(app.ClinicalPanel);
-            app.BandBarAxes.Position = [30 20 1000 180];
-            title(app.BandBarAxes, 'Frequency Band Power Comparison', 'FontSize', 11);
-            ylabel(app.BandBarAxes, 'Relative Power (%)');
+            app.BandBarAxes.Position = [550 460 480 320];  % Bottom row at Y=460
+            title(app.BandBarAxes, 'Analysis Summary', 'FontSize', 11);
 
             % === TAB 3: EPOCH ANALYSIS ===
             app.EpochTab = uitab(app.ResultsTabGroup);
@@ -581,9 +611,6 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
 
             % Initialize event visualization storage
             app.EventColumns = {};
-
-            % Initialize epoch definitions
-            app.EpochDefinitions = {};
         end
 
         function showUploadScreen(app)
@@ -710,10 +737,6 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
                     app.EpochListBox.Visible = 'on';
                     app.RemoveEpochButton.Visible = 'on';
 
-                    % Clear any previous epoch definitions when changing field
-                    app.EpochDefinitions = {};
-                    app.EpochListBox.Items = {};
-
                     fprintf('✓ Found %d unique marker types\n', length(markerItems));
                 else
                     % No events detected - hide epoch builder UI
@@ -730,193 +753,244 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             end
         end
 
-        function selectEventsManually(app)
+        function selectMarkersManually(app)
+            % Resting state marker selection for start-end pairs
             EEG = app.EEG;
-            structure = detectEventStructure(EEG);
 
-            % STEP 1: Discover available fields
-            fprintf('Discovering event fields...\n');
-            allFields = {};
-            fieldStats = struct();
+            % STEP 1: Select event field to use
+            fprintf('Discovering event fields for resting state markers...\n');
 
-            for i = 1:min(100, length(EEG.event))
-                evt = EEG.event(i);
-                fnames = fieldnames(evt);
-                for f = 1:length(fnames)
-                    fname = fnames{f};
-                    % Skip basic EEGLAB fields
-                    if ~ismember(fname, {'type', 'latency', 'duration', 'urevent', 'epoch'})
-                        if ~isfield(fieldStats, fname)
-                            fieldStats.(fname) = {};
-                        end
-                        fval = evt.(fname);
-                        if ischar(fval) || isstring(fval)
-                            fieldStats.(fname){end+1} = char(fval);
-                        end
-                    end
-                end
+            % Get all available event fields
+            allFieldNames = {};
+            if isfield(EEG, 'event') && ~isempty(EEG.event)
+                allFieldNames = fieldnames(EEG.event);
+                % Filter to keep only useful fields (not latency, duration, etc.)
+                allFieldNames = allFieldNames(~ismember(allFieldNames, {'latency', 'duration', 'urevent', 'epoch'}));
             end
 
-            availableFields = fieldnames(fieldStats);
-            if isempty(availableFields)
-                uialert(app.UIFigure, 'No event fields found for grouping.', 'No Fields');
+            if isempty(allFieldNames)
+                uialert(app.UIFigure, 'No event fields found.', 'No Fields');
                 return;
             end
 
-            % Calculate unique values per field
-            fieldInfo = cell(length(availableFields), 1);
-            for i = 1:length(availableFields)
-                fname = availableFields{i};
-                uniqueVals = unique(fieldStats.(fname));
-                fieldInfo{i} = sprintf('%s (%d unique values)', fname, length(uniqueVals));
-            end
+            % STEP 1 DIALOG: Select event field
+            d1 = uifigure('Name', 'Step 1: Select Event Field', 'Position', [100 100 600 400]);
 
-            % STEP 1 DIALOG: Select grouping fields
-            d1 = uifigure('Name', 'Step 1: Select Grouping Fields', 'Position', [100 100 700 550]);
-
-            titleLabel = uilabel(d1, 'Position', [50 500 600 30], ...
-                'Text', 'Step 1: Select fields to group events by', ...
+            titleLabel = uilabel(d1, 'Position', [50 350 500 30], ...
+                'Text', 'Step 1: Select event field for markers', ...
                 'FontSize', 16, 'FontWeight', 'bold');
 
-            infoLabel = uilabel(d1, 'Position', [50 470 600 20], ...
-                'Text', 'Choose which event fields define your conditions (e.g., mffkey_Cond, mffkey_Code)', ...
+            infoLabel = uilabel(d1, 'Position', [50 320 500 20], ...
+                'Text', 'Choose which field contains your start/end markers (usually ''type'')', ...
                 'FontSize', 11, 'FontColor', [0.5 0.5 0.5]);
 
-            fieldListbox = uilistbox(d1, 'Position', [50 150 600 300], ...
-                'Items', fieldInfo, ...
-                'ItemsData', 1:length(availableFields), ...
-                'Multiselect', 'on');
+            fieldListbox = uilistbox(d1, 'Position', [50 100 500 200], ...
+                'Items', allFieldNames, ...
+                'Value', allFieldNames{1});  % Default to first field
 
-            % Auto-select mffkey fields by default
-            defaultSelection = [];
-            for i = 1:length(availableFields)
-                if startsWith(lower(availableFields{i}), 'mffkey')
-                    defaultSelection(end+1) = i;
-                end
-            end
-            if ~isempty(defaultSelection)
-                fieldListbox.Value = defaultSelection;
+            % Auto-select 'type' if available
+            if ismember('type', allFieldNames)
+                fieldListbox.Value = 'type';
             end
 
-            selectAllFieldsBtn = uibutton(d1, 'Position', [50 110 120 30], ...
-                'Text', 'Select All', ...
-                'ButtonPushedFcn', @(btn,event) set(fieldListbox, 'Value', 1:length(availableFields)));
-
-            clearAllFieldsBtn = uibutton(d1, 'Position', [180 110 120 30], ...
-                'Text', 'Clear All', ...
-                'ButtonPushedFcn', @(btn,event) set(fieldListbox, 'Value', []));
-
-            nextBtn = uibutton(d1, 'Position', [500 30 100 50], ...
+            nextBtn = uibutton(d1, 'Position', [420 30 100 50], ...
                 'Text', 'Next', ...
                 'FontSize', 14, ...
                 'BackgroundColor', [0.3 0.5 0.8], ...
                 'FontColor', [1 1 1], ...
                 'ButtonPushedFcn', @(btn,event) proceedToStep2());
 
-            cancelBtn = uibutton(d1, 'Position', [380 30 100 50], ...
+            cancelBtn = uibutton(d1, 'Position', [300 30 100 50], ...
                 'Text', 'Cancel', ...
                 'ButtonPushedFcn', @(btn,event) close(d1));
 
             function proceedToStep2()
-                selectedFieldIdx = fieldListbox.Value;
-                if isempty(selectedFieldIdx)
-                    uialert(d1, 'Please select at least one field.', 'No Fields Selected');
+                selectedField = fieldListbox.Value;
+                if isempty(selectedField)
+                    uialert(d1, 'Please select a field.', 'No Field Selected');
                     return;
                 end
-
-                selectedFields = availableFields(selectedFieldIdx);
                 close(d1);
 
-                % STEP 2: Parse events using selected fields
-                discovery = struct();
-                discovery.groupingFields = selectedFields;
-                discovery.practicePatterns = {};
-                discovery.valueMappings = struct();  % Required by parseEventUniversal
-
-                allEvents = {};
+                % STEP 2: Get all unique marker types from selected field
+                allMarkers = {};
+                markerCounts = [];
                 for i = 1:length(EEG.event)
-                    if isfield(EEG.event(i), 'type')
-                        condLabel = parseEventUniversal(EEG.event(i), structure, discovery, selectedFields);
-                        if ~isempty(condLabel)
-                            allEvents{end+1} = condLabel;
+                    if isfield(EEG.event(i), selectedField)
+                        val = EEG.event(i).(selectedField);
+                        if ischar(val) || isstring(val)
+                            allMarkers{end+1} = char(val);
                         end
                     end
                 end
 
-                uniqueEvents = unique(allEvents);
-
-                if isempty(uniqueEvents)
-                    uialert(app.UIFigure, 'No events found with selected fields.', 'No Events');
+                uniqueMarkers = unique(allMarkers);
+                if isempty(uniqueMarkers)
+                    uialert(app.UIFigure, 'No markers found in selected field.', 'No Markers');
                     return;
                 end
 
-                % Count trials per event
-                eventCounts = zeros(length(uniqueEvents), 1);
-                for i = 1:length(uniqueEvents)
-                    eventCounts(i) = sum(strcmp(allEvents, uniqueEvents{i}));
+                % Count occurrences
+                markerCounts = zeros(length(uniqueMarkers), 1);
+                for i = 1:length(uniqueMarkers)
+                    markerCounts(i) = sum(strcmp(allMarkers, uniqueMarkers{i}));
                 end
 
-                % STEP 2 DIALOG: Select events
-                d2 = uifigure('Name', 'Step 2: Select Events', 'Position', [100 100 700 600]);
+                % STEP 2 DIALOG: Define start-end pairs
+                d2 = uifigure('Name', 'Step 2: Define Start-End Marker Pairs', 'Position', [100 100 900 700]);
 
-                titleLabel2 = uilabel(d2, 'Position', [50 550 600 30], ...
-                    'Text', 'Step 2: Select which events to analyze', ...
+                titleLabel2 = uilabel(d2, 'Position', [50 650 800 30], ...
+                    'Text', 'Step 2: Define start-end marker pairs for each condition', ...
                     'FontSize', 16, 'FontWeight', 'bold');
 
-                infoLabel2 = uilabel(d2, 'Position', [50 520 600 20], ...
-                    'Text', sprintf('Grouped by: %s | Found %d event types', strjoin(selectedFields, ', '), length(uniqueEvents)), ...
+                infoLabel2 = uilabel(d2, 'Position', [50 620 800 20], ...
+                    'Text', sprintf('Field: %s | Found %d marker types', selectedField, length(uniqueMarkers)), ...
                     'FontSize', 11, 'FontColor', [0.5 0.5 0.5]);
 
-                % Create list with counts
-                displayList = cell(length(uniqueEvents), 1);
-                for i = 1:length(uniqueEvents)
-                    displayList{i} = sprintf('%s (%d trials)', uniqueEvents{i}, eventCounts(i));
+                % Instructions
+                instrLabel = uilabel(d2, 'Position', [50 590 800 20], ...
+                    'Text', 'Example: Start=''Eyes_Open_Start'', End=''Eyes_Open_End'', Label=''EyesOpen''', ...
+                    'FontSize', 10, 'FontColor', [0.4 0.4 0.7], 'FontAngle', 'italic');
+
+                % Start marker dropdown
+                startLabel = uilabel(d2, 'Position', [50 540 150 30], ...
+                    'Text', 'Start Marker:', 'FontSize', 12, 'FontWeight', 'bold');
+                startDropdown = uidropdown(d2, 'Position', [210 540 200 30], ...
+                    'Items', uniqueMarkers);
+
+                % End marker dropdown
+                endLabel = uilabel(d2, 'Position', [450 540 150 30], ...
+                    'Text', 'End Marker:', 'FontSize', 12, 'FontWeight', 'bold');
+                endDropdown = uidropdown(d2, 'Position', [610 540 200 30], ...
+                    'Items', uniqueMarkers);
+                if length(uniqueMarkers) >= 2
+                    endDropdown.Value = uniqueMarkers{2};
                 end
 
-                eventListbox = uilistbox(d2, 'Position', [50 150 600 350], ...
-                    'Items', displayList, ...
-                    'ItemsData', 1:length(uniqueEvents), ...
-                    'Multiselect', 'on', ...
-                    'Value', 1:length(uniqueEvents));  % All selected by default
+                % Condition label
+                condLabel = uilabel(d2, 'Position', [50 490 150 30], ...
+                    'Text', 'Condition Label:', 'FontSize', 12, 'FontWeight', 'bold');
+                condField = uieditfield(d2, 'text', 'Position', [210 490 200 30], ...
+                    'Value', 'Condition1', 'Placeholder', 'e.g., EyesOpen');
 
-                selectAllEventsBtn = uibutton(d2, 'Position', [50 110 120 30], ...
-                    'Text', 'Select All', ...
-                    'ButtonPushedFcn', @(btn,event) set(eventListbox, 'Value', 1:length(uniqueEvents)));
+                % Add pair button
+                addPairBtn = uibutton(d2, 'Position', [450 490 150 30], ...
+                    'Text', 'Add Pair', ...
+                    'BackgroundColor', [0.2 0.7 0.3], ...
+                    'FontColor', [1 1 1], ...
+                    'ButtonPushedFcn', @(btn,event) addPair());
 
-                clearAllEventsBtn = uibutton(d2, 'Position', [180 110 120 30], ...
-                    'Text', 'Clear All', ...
-                    'ButtonPushedFcn', @(btn,event) set(eventListbox, 'Value', []));
+                % List of defined pairs
+                pairListLabel = uilabel(d2, 'Position', [50 450 300 30], ...
+                    'Text', 'Defined Pairs:', 'FontSize', 12, 'FontWeight', 'bold');
 
-                backBtn = uibutton(d2, 'Position', [260 30 100 50], ...
-                    'Text', 'Back', ...
-                    'ButtonPushedFcn', @(btn,event) goBack());
+                pairListBox = uilistbox(d2, 'Position', [50 150 800 290]);
 
-                okBtn = uibutton(d2, 'Position', [500 30 100 50], ...
+                % Remove pair button
+                removePairBtn = uibutton(d2, 'Position', [50 110 150 30], ...
+                    'Text', 'Remove Selected', ...
+                    'BackgroundColor', [0.8 0.2 0.2], ...
+                    'FontColor', [1 1 1], ...
+                    'ButtonPushedFcn', @(btn,event) removePair());
+
+                % Storage for pairs
+                markerPairs = {};  % {startMarker, endMarker, label}
+
+                % Action buttons
+                okBtn = uibutton(d2, 'Position', [750 30 100 50], ...
                     'Text', 'OK', ...
                     'FontSize', 14, ...
                     'BackgroundColor', [0.2 0.7 0.3], ...
                     'FontColor', [1 1 1], ...
-                    'ButtonPushedFcn', @(btn,event) confirmSelection());
+                    'ButtonPushedFcn', @(btn,event) confirmPairs());
 
-                cancelBtn2 = uibutton(d2, 'Position', [380 30 100 50], ...
+                backBtn = uibutton(d2, 'Position', [510 30 100 50], ...
+                    'Text', 'Back', ...
+                    'ButtonPushedFcn', @(btn,event) goBack());
+
+                cancelBtn2 = uibutton(d2, 'Position', [630 30 100 50], ...
                     'Text', 'Cancel', ...
                     'ButtonPushedFcn', @(btn,event) close(d2));
 
-                function goBack()
-                    close(d2);
-                    selectEventsManually(app);  % Restart from step 1
-                end
+                function addPair()
+                    start = startDropdown.Value;
+                    endM = endDropdown.Value;
+                    label = condField.Value;
 
-                function confirmSelection()
-                    selectedEventIdx = eventListbox.Value;
-                    if isempty(selectedEventIdx)
-                        uialert(d2, 'Please select at least one event type.', 'No Selection');
+                    if isempty(label)
+                        uialert(d2, 'Please enter a condition label.', 'No Label');
                         return;
                     end
 
-                    app.SelectedEvents = uniqueEvents(selectedEventIdx);
-                    app.SelectedFields = selectedFields;  % Store the grouping fields!
-                    app.EventSelectionLabel.Text = sprintf('%d events from %d fields', length(app.SelectedEvents), length(selectedFields));
+                    % Check if label already exists
+                    for i = 1:length(markerPairs)
+                        if strcmp(markerPairs{i}{3}, label)
+                            uialert(d2, 'Condition label already exists.', 'Duplicate Label');
+                            return;
+                        end
+                    end
+
+                    % Add pair
+                    markerPairs{end+1} = {start, endM, label};
+
+                    % Update display
+                    updatePairList();
+
+                    % Auto-increment label for next pair
+                    condField.Value = sprintf('Condition%d', length(markerPairs)+1);
+                end
+
+                function removePair()
+                    idx = pairListBox.Value;
+                    if ~isempty(idx) && ~isempty(pairListBox.ItemsData)
+                        pairIdx = find(strcmp(pairListBox.ItemsData, idx));
+                        if ~isempty(pairIdx)
+                            markerPairs(pairIdx) = [];
+                            updatePairList();
+                        end
+                    end
+                end
+
+                function updatePairList()
+                    if isempty(markerPairs)
+                        pairListBox.Items = {'(no pairs defined)'};
+                        pairListBox.ItemsData = {};
+                    else
+                        displayItems = cell(length(markerPairs), 1);
+                        for i = 1:length(markerPairs)
+                            pair = markerPairs{i};
+                            displayItems{i} = sprintf('%s: %s → %s', pair{3}, pair{1}, pair{2});
+                        end
+                        pairListBox.Items = displayItems;
+                        pairListBox.ItemsData = displayItems;
+                    end
+                end
+
+                function goBack()
+                    close(d2);
+                    selectMarkersManually(app);
+                end
+
+                function confirmPairs()
+                    if isempty(markerPairs)
+                        uialert(d2, 'Please define at least one marker pair.', 'No Pairs');
+                        return;
+                    end
+
+                    % Store in app
+                    app.StartMarkerTypes = {};
+                    app.EndMarkerTypes = {};
+                    app.SegmentConditions = {};
+
+                    for i = 1:length(markerPairs)
+                        pair = markerPairs{i};
+                        app.StartMarkerTypes{i} = pair{1};
+                        app.EndMarkerTypes{i} = pair{2};
+                        app.SegmentConditions{i} = pair{3};
+                    end
+
+                    app.SelectedFields = {selectedField};  % Store field used
+                    app.EventSelectionLabel.Text = sprintf('%d marker pairs defined', length(markerPairs));
                     app.EventSelectionLabel.FontColor = [0.2 0.6 0.3];
                     app.StartButton.Enable = 'on';
                     close(d2);
@@ -933,15 +1007,15 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         end
 
         function startProcessing(app)
-            % Check if user defined any epochs
-            if ~isempty(app.EpochDefinitions)
-                fprintf('User defined %d epoch type(s) for analysis:\n', length(app.EpochDefinitions));
-                for i = 1:length(app.EpochDefinitions)
-                    def = app.EpochDefinitions{i};
-                    fprintf('  %d. %s (from %s to %s)\n', i, def.name, def.startMarker, def.endMarker);
+            % Check if user defined any marker pairs
+            if ~isempty(app.StartMarkerTypes)
+                fprintf('User defined %d marker pair(s) for analysis:\n', length(app.StartMarkerTypes));
+                for i = 1:length(app.StartMarkerTypes)
+                    fprintf('  %d. %s: %s → %s\n', i, app.SegmentConditions{i}, ...
+                        app.StartMarkerTypes{i}, app.EndMarkerTypes{i});
                 end
             else
-                fprintf('No epochs defined - will only perform continuous data analysis\n');
+                fprintf('No marker pairs defined - will only perform continuous data analysis\n');
             end
 
             % Show processing screen
@@ -974,10 +1048,10 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             EEG_original = EEG; % Store original for comparison
             pause(0.3);
 
-            % Stage 2: Filtering & Preprocessing (EXACT match with JuanAnalyzerManual)
+            % Stage 2: Filtering & Preprocessing (Optimized for Resting State)
             updateProgress(app, 2, 'Filtering & Preprocessing...');
             params.resample_rate = 250;
-            params.hp_cutoff = 0.5;
+            params.hp_cutoff = 1.0;  % 1 Hz for resting state (removes slow drift)
             params.lp_cutoff = 50;
             params.notch_freq = 60;
 
@@ -1056,11 +1130,11 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
                 fprintf('Warning: Bad channel detection error: %s\n', ME.message);
             end
 
-            % Run ICA with PCA reduction (EXACT match - 40 components for speed)
-            updateProgress(app, 4, 'Running ICA with PCA Reduction...');
+            % Run ICA at full rank (no PCA reduction)
+            updateProgress(app, 4, 'Running ICA (Full Rank)...');
             try
-                EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1, 'pca', 40);
-                fprintf('ICA completed with PCA reduction to 40 components\n');
+                EEG = pop_runica(EEG, 'icatype', 'runica', 'extended', 1);
+                fprintf('ICA completed at full rank (%d components)\n', size(EEG.icaweights, 1));
             catch ME
                 fprintf('ICA failed: %s\n', ME.message);
             end
@@ -1091,29 +1165,23 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
 
             app.RemovedComponents = removedComponents;
 
-            % Stage 6: Epoch Extraction (using selected events)
-            if ~isempty(app.SelectedEvents)
-                updateProgress(app, 6, 'Extracting Epochs from Selected Events...');
+            % Stage 6: Continuous Segment Extraction (using start-end marker pairs)
+            if ~isempty(app.StartMarkerTypes)
+                updateProgress(app, 6, 'Extracting Continuous Segments Between Markers...');
                 try
-                    % Detect event structure
-                    structure = detectEventStructure(EEG);
-                    discovery = struct();
-                    discovery.groupingFields = app.SelectedFields;
-                    discovery.practicePatterns = {};
-                    discovery.valueMappings = struct();
-
-                    % Extract epochs using universal function
-                    timeWindow = [-0.2, 0.8];
-                    app.EpochedData = epochEEGByEventsUniversal(EEG, app.SelectedEvents, ...
-                        timeWindow, structure, discovery, app.SelectedFields);
-                    fprintf('Extracted %d epoch types\n', length(app.EpochedData));
+                    % Extract segments using start-end marker pairs
+                    app.SegmentData = extractRestingSegments(EEG, ...
+                        app.StartMarkerTypes, app.EndMarkerTypes, ...
+                        app.SegmentConditions, app.SelectedFields{1});
+                    fprintf('Extracted %d continuous segments\n', length(app.SegmentData));
                 catch ME
-                    fprintf('Epoch extraction failed: %s\n', ME.message);
-                    app.EpochedData = [];
+                    fprintf('Segment extraction failed: %s\n', ME.message);
+                    fprintf('Error details: %s\n', ME.getReport());
+                    app.SegmentData = [];
                 end
             else
-                updateProgress(app, 6, 'No Events Selected (Continuous Analysis)...');
-                app.EpochedData = [];
+                updateProgress(app, 6, 'No Markers Selected (Continuous Analysis)...');
+                app.SegmentData = [];
             end
 
             % Stage 7: Comprehensive Quality Evaluation
@@ -1122,13 +1190,20 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
                 badChans, removedComponents);
             app.QualityMetrics = metrics;
 
-            % Compute clinical diagnostic metrics
+            % Compute resting state band power metrics
             try
-                updateProgress(app, 8, 'Computing Clinical Metrics...');
-                clinical = computeClinicalMetrics(EEG);
-                app.ClinicalMetrics = clinical;
+                updateProgress(app, 8, 'Computing Resting State Band Powers...');
+                if ~isempty(app.SegmentData)
+                    % Use standard version (1 Hz high-pass filter addresses drift issue)
+                    restingMetrics = computeRestingStateMetrics(app.SegmentData);
+                    app.ClinicalMetrics = restingMetrics;  % Store in ClinicalMetrics for now
+                else
+                    fprintf('No segments available for resting state analysis\n');
+                    app.ClinicalMetrics = struct();
+                end
             catch ME
-                warning('Clinical metrics failed: %s', ME.message);
+                warning('Resting state metrics failed: %s', ME.message);
+                fprintf('Error details: %s\n', ME.getReport());
                 app.ClinicalMetrics = struct();
             end
 
@@ -1255,22 +1330,23 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
                     'HorizontalAlignment', 'center');
             end
 
-            % Generate clinical visualizations
+            % Generate resting state comparison visualizations
             if ~isempty(fieldnames(app.ClinicalMetrics))
                 try
-                    generateClinicalVisualizations(app.EEGClean, app.ClinicalMetrics, ...
+                    generateRestingStateVisualizations(app.ClinicalMetrics, ...
                         app.ThetaBetaAxes, app.MultiBandAxes, app.AsymmetryAxes, app.BandBarAxes);
                 catch ME
-                    warning('Clinical visualization generation failed: %s', ME.message);
+                    warning('Resting state visualization generation failed: %s', ME.message);
+                    fprintf('Error details: %s\n', ME.getReport());
                     % Fallback to simple placeholder
                     cla(app.ThetaBetaAxes);
-                    text(app.ThetaBetaAxes, 0.5, 0.5, 'Clinical visualization unavailable', ...
+                    text(app.ThetaBetaAxes, 0.5, 0.5, 'Resting state visualization unavailable', ...
                         'Units', 'normalized', 'HorizontalAlignment', 'center');
                 end
             else
-                % Show message if clinical metrics weren't computed
+                % Show message if resting state metrics weren't computed
                 cla(app.ThetaBetaAxes);
-                text(app.ThetaBetaAxes, 0.5, 0.5, 'Clinical metrics not available', ...
+                text(app.ThetaBetaAxes, 0.5, 0.5, 'Resting state metrics not available', ...
                     'Units', 'normalized', 'HorizontalAlignment', 'center', 'FontSize', 12);
             end
         end
@@ -1486,21 +1562,28 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             summary{end+1} = sprintf('  Sampling Rate: %.0f Hz', metrics.sampling_rate);
             summary{end+1} = '';
 
-            % Epoch Info
-            if ~isempty(app.EpochDefinitions)
+            % Segment Info
+            if ~isempty(app.StartMarkerTypes)
                 summary{end+1} = '─────────────────────────────────────────────────────────────────';
-                summary{end+1} = '  EPOCH ANALYSIS';
+                summary{end+1} = '  RESTING STATE SEGMENTS';
                 summary{end+1} = '─────────────────────────────────────────────────────────────────';
-                summary{end+1} = sprintf('  Epochs Defined: %d', length(app.EpochDefinitions));
-                for i = 1:length(app.EpochDefinitions)
-                    def = app.EpochDefinitions{i};
-                    summary{end+1} = sprintf('    %d. %s (%s → %s)', i, def.name, def.startMarker, def.endMarker);
+                summary{end+1} = sprintf('  Marker Pairs Defined: %d', length(app.StartMarkerTypes));
+                for i = 1:length(app.StartMarkerTypes)
+                    summary{end+1} = sprintf('    %d. %s: %s → %s', i, app.SegmentConditions{i}, ...
+                        app.StartMarkerTypes{i}, app.EndMarkerTypes{i});
                 end
-                if ~isempty(app.EpochedData)
-                    summary{end+1} = sprintf('  Extracted Epochs: %d types', length(app.EpochedData));
-                    for i = 1:length(app.EpochedData)
-                        ep = app.EpochedData(i);
-                        summary{end+1} = sprintf('    • %s: %d trials', ep.eventType, ep.numEpochs);
+                if ~isempty(app.SegmentData)
+                    summary{end+1} = sprintf('  Extracted Segments: %d total', length(app.SegmentData));
+
+                    % Group by condition
+                    conditions = unique({app.SegmentData.condition});
+                    for i = 1:length(conditions)
+                        cond = conditions{i};
+                        condMask = strcmp({app.SegmentData.condition}, cond);
+                        numSegs = sum(condMask);
+                        totalDur = sum([app.SegmentData(condMask).duration]);
+                        summary{end+1} = sprintf('    • %s: %d segments (%.2f sec total)', ...
+                            cond, numSegs, totalDur);
                     end
                 end
                 summary{end+1} = '';
@@ -1570,24 +1653,14 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
         end
 
         function detectAndDisplayEvents(app)
-            % Analyze marker-pair epochs if user defined them
+            % For RestingStateAnalyzer, segments are already extracted during processing
+            % Just hide the event panel as it's not used for resting state analysis
             try
-                % Re-detect events on cleaned data
-                app.EventInfo = detectEEGEvents(app.EEGClean);
-
-                % Hide the old EventPanel (not used in marker-pair system)
+                % Hide the event panel (not used in resting state analysis)
                 app.EventPanel.Visible = 'off';
 
-                % If user defined epoch pairs, analyze them automatically
-                if app.EventInfo.hasEvents && ~isempty(app.EpochDefinitions)
-                    fprintf('\nAnalyzing marker-pair epochs...\n');
-
-                    % Epoch data using marker pairs
-                    analyzeMarkerPairEpochs(app);
-                else
-                    % Hide epoch panel if no epochs defined
-                    app.EpochPanel.Visible = 'off';
-                end
+                % Note: Segments are already extracted in Stage 6 of processing
+                % No additional event detection needed here
             catch ME
                 warning('Event analysis failed: %s', ME.message);
                 app.EpochPanel.Visible = 'off';
@@ -2054,113 +2127,14 @@ classdef EEGQualityAnalyzer < matlab.apps.AppBase
             end
         end
 
-        function analyzeMarkerPairEpochs(app)
-            % Epoch data using marker pairs and display results
-            try
-                % Epoch the data using marker pairs
-                fprintf('\n=== Marker-Pair Epoch Analysis ===\n');
-                app.EpochedData = epochEEGByMarkerPairs(app.EEGClean, app.EpochDefinitions);
+        % Legacy functions from EEGQualityAnalyzer - Not used in RestingStateAnalyzer
+        % (Kept for compatibility but commented out to avoid errors)
 
-                if isempty(app.EpochedData)
-                    fprintf('No valid epochs found\n');
-                    return;
-                end
-
-                % Show epoch panel
-                app.EpochPanel.Visible = 'on';
-
-                % Generate epoch visualizations
-                generateEpochVisualizations(app);
-
-            catch ME
-                warning('Error during marker-pair epoch analysis: %s', ME.message);
-                fprintf('Error: %s\n', ME.message);
-            end
-        end
-
-        function hideEpochBuilder(app)
-            % Hide all epoch builder UI elements
-            app.EpochBuilderLabel.Visible = 'off';
-            app.StartMarkerLabel.Visible = 'off';
-            app.StartMarkerDropdown.Visible = 'off';
-            app.EndMarkerLabel.Visible = 'off';
-            app.EndMarkerDropdown.Visible = 'off';
-            app.EpochNameLabel.Visible = 'off';
-            app.EpochNameField.Visible = 'off';
-            app.AddEpochButton.Visible = 'off';
-            app.EpochListLabel.Visible = 'off';
-            app.EpochListBox.Visible = 'off';
-            app.RemoveEpochButton.Visible = 'off';
-        end
-
-        function addEpochDefinition(app)
-            % Add a new epoch definition to the list
-            startMarker = app.StartMarkerDropdown.Value;
-            endMarker = app.EndMarkerDropdown.Value;
-            epochName = app.EpochNameField.Value;
-
-            % Generate default name if empty
-            if isempty(epochName)
-                epochName = sprintf('%s → %s', startMarker, endMarker);
-            end
-
-            % Create epoch definition struct
-            epochDef = struct();
-            epochDef.startMarker = startMarker;
-            epochDef.endMarker = endMarker;
-            epochDef.name = epochName;
-
-            % Add to list
-            app.EpochDefinitions{end+1} = epochDef;
-
-            % Update listbox
-            updateEpochListBox(app);
-
-            % Clear name field for next entry
-            app.EpochNameField.Value = '';
-
-            fprintf('Added epoch definition: %s (from %s to %s)\n', ...
-                epochName, startMarker, endMarker);
-        end
-
-        function removeEpochDefinition(app)
-            % Remove selected epoch definition from the list
-            selectedIdx = find(strcmp(app.EpochListBox.Items, app.EpochListBox.Value));
-
-            if isempty(selectedIdx)
-                return;
-            end
-
-            % Remove from list
-            app.EpochDefinitions(selectedIdx) = [];
-
-            % Update listbox
-            updateEpochListBox(app);
-
-            fprintf('Removed epoch definition\n');
-        end
-
-        function updateEpochListBox(app)
-            % Update the epoch list box with current definitions
-            if isempty(app.EpochDefinitions)
-                app.EpochListBox.Items = {};
-                return;
-            end
-
-            items = cell(length(app.EpochDefinitions), 1);
-            for i = 1:length(app.EpochDefinitions)
-                def = app.EpochDefinitions{i};
-                items{i} = sprintf('%d. %s (%s → %s)', ...
-                    i, def.name, def.startMarker, def.endMarker);
-            end
-
-            app.EpochListBox.Items = items;
-
-            % Select first item by default
-            if ~isempty(items)
-                app.EpochListBox.Value = items{1};
-            end
-        end
+        % function analyzeMarkerPairEpochs(app)
+        % function hideEpochBuilder(app)
+        % function addEpochDefinition(app)
+        % function removeEpochDefinition(app)
+        % function updateEpochListBox(app)
 
     end
 end
