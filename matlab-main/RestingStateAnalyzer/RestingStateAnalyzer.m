@@ -274,8 +274,8 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             % Scale Stage Label (300, 720, 600, 30)
             app.StageLabel.Position = [300*scaleX 720*scaleY 600*scaleX 30*scaleY];
 
-            % Scale Progress Bar - keep height fixed at 40px to avoid fat/thin issues
-            app.ProgressBar.Position = [300*scaleX 650*scaleY 600*scaleX 40];
+            % Scale Progress Bar - keep height fixed at 20px to avoid fat/thin issues
+            app.ProgressBar.Position = [300*scaleX 650*scaleY 600*scaleX 20];
 
             % Scale Progress Text (300, 610, 600, 25)
             app.ProgressText.Position = [300*scaleX 610*scaleY 600*scaleX 25*scaleY];
