@@ -27,6 +27,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
         ProgressText            matlab.ui.control.Label
         StageLabel              matlab.ui.control.Label
         AnimatedIcon            matlab.ui.control.Label
+        StagesPanel             matlab.ui.container.Panel
 
         % Results Screen Components
         ResultsStatusLabel      matlab.ui.control.Label
@@ -273,11 +274,14 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             % Scale Stage Label (300, 720, 600, 30)
             app.StageLabel.Position = [300*scaleX 720*scaleY 600*scaleX 30*scaleY];
 
-            % Scale Progress Bar (300, 650, 600, 40)
-            app.ProgressBar.Position = [300*scaleX 650*scaleY 600*scaleX 40*scaleY];
+            % Scale Progress Bar - keep height fixed at 40px to avoid fat/thin issues
+            app.ProgressBar.Position = [300*scaleX 650*scaleY 600*scaleX 40];
 
             % Scale Progress Text (300, 610, 600, 25)
             app.ProgressText.Position = [300*scaleX 610*scaleY 600*scaleX 25*scaleY];
+
+            % Scale Stages Panel (350, 400, 500, 180)
+            app.StagesPanel.Position = [350*scaleX 400*scaleY 500*scaleX 180*scaleY];
         end
 
         function createUploadPanel(app)
@@ -419,12 +423,12 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.ProgressText.HorizontalAlignment = 'center';
 
             % Processing stages info
-            stagesPanel = uipanel(app.ProcessingPanel);
-            stagesPanel.Position = [350 400 500 180];  % Moved up 200px
-            stagesPanel.BackgroundColor = [1 1 1];
-            stagesPanel.BorderType = 'line';
+            app.StagesPanel = uipanel(app.ProcessingPanel);
+            app.StagesPanel.Position = [350 400 500 180];  % Moved up 200px
+            app.StagesPanel.BackgroundColor = [1 1 1];
+            app.StagesPanel.BorderType = 'line';
 
-            stagesLabel = uilabel(stagesPanel);
+            stagesLabel = uilabel(app.StagesPanel);
             stagesLabel.Position = [20 145 460 25];
             stagesLabel.Text = 'Processing Stages:';
             stagesLabel.FontSize = 14;
@@ -442,7 +446,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             };
 
             for i = 1:8
-                label = uilabel(stagesPanel);
+                label = uilabel(app.StagesPanel);
                 label.Position = [30 155-i*19 440 16];
                 label.Text = stages{i};
                 label.FontSize = 10;
