@@ -197,6 +197,9 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             procY = (figHeight - procHeight) / 2;
             app.ProcessingPanel.Position = [procX procY procWidth procHeight];
 
+            % Scale Processing Panel internal UI elements
+            scaleProcessingPanelContent(app, procWidth, procHeight);
+
             % Results Panel - target 1200x900, aspect ratio 4:3
             resultsTargetWidth = 1200;
             resultsTargetHeight = 900;
@@ -249,6 +252,32 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
 
             % Scale Instructions Label (100, 40, 1000, 40)
             app.InstructionsLabel.Position = [100*scaleX 40*scaleY 1000*scaleX 40*scaleY];
+        end
+
+        function scaleProcessingPanelContent(app, panelWidth, panelHeight)
+            % Scale UI elements inside Processing Panel based on panel size
+            % Target dimensions: 1200x1200
+            targetWidth = 1200;
+            targetHeight = 1200;
+
+            % Calculate scale factors
+            scaleX = panelWidth / targetWidth;
+            scaleY = panelHeight / targetHeight;
+
+            % Scale Processing Label (300, 880, 600, 50)
+            app.ProcessingLabel.Position = [300*scaleX 880*scaleY 600*scaleX 50*scaleY];
+
+            % Scale Animated Icon (550, 780, 100, 80)
+            app.AnimatedIcon.Position = [550*scaleX 780*scaleY 100*scaleX 80*scaleY];
+
+            % Scale Stage Label (300, 720, 600, 30)
+            app.StageLabel.Position = [300*scaleX 720*scaleY 600*scaleX 30*scaleY];
+
+            % Scale Progress Bar (300, 650, 600, 40)
+            app.ProgressBar.Position = [300*scaleX 650*scaleY 600*scaleX 40*scaleY];
+
+            % Scale Progress Text (300, 610, 600, 25)
+            app.ProgressText.Position = [300*scaleX 610*scaleY 600*scaleX 25*scaleY];
         end
 
         function createUploadPanel(app)
