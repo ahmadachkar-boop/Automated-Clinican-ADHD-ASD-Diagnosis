@@ -780,39 +780,56 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             saveProcessedData(app);
         end
 
-        function saveProcessedData(app)
+        function saveProcessedData(app, stage)
             % Save processed EEG data and metrics for future use
+            % stage: 'post-ica' or 'complete' (default: 'complete')
+            if nargin < 2
+                stage = 'complete';
+            end
+
             try
-                % Create filename based on original EEG file
+                % Create filename based on original EEG file and stage
                 [~, basename, ~] = fileparts(app.EEGFile);
-                saveFile = fullfile(pwd, [basename '_RestingState_Processed.mat']);
+                if strcmp(stage, 'post-ica')
+                    saveFile = fullfile(pwd, [basename '_RestingState_PostICA.mat']);
+                else
+                    saveFile = fullfile(pwd, [basename '_RestingState_Processed.mat']);
+                end
 
                 % Prepare data to save
+                savedData.ProcessingStage = stage;
                 savedData.EEG = app.EEG;
                 savedData.EEGClean = app.EEGClean;
-                savedData.QualityMetrics = app.QualityMetrics;
-                savedData.ClinicalMetrics = app.ClinicalMetrics;
-                savedData.SegmentData = app.SegmentData;
-                savedData.StartMarkerTypes = app.StartMarkerTypes;
-                savedData.EndMarkerTypes = app.EndMarkerTypes;
-                savedData.SegmentConditions = app.SegmentConditions;
                 savedData.BadChannels = app.BadChannels;
                 savedData.BadChannelLabels = app.BadChannelLabels;
                 savedData.RemovedComponents = app.RemovedComponents;
                 savedData.OriginalFile = app.EEGFile;
                 savedData.ProcessingDate = datetime('now');
 
+                % Include markers and segments for all stages
+                savedData.StartMarkerTypes = app.StartMarkerTypes;
+                savedData.EndMarkerTypes = app.EndMarkerTypes;
+                savedData.SegmentConditions = app.SegmentConditions;
+                savedData.SelectedFields = app.SelectedFields;
+
+                % For complete stage, also save analysis results
+                if strcmp(stage, 'complete')
+                    savedData.QualityMetrics = app.QualityMetrics;
+                    savedData.ClinicalMetrics = app.ClinicalMetrics;
+                    savedData.SegmentData = app.SegmentData;
+                end
+
                 % Save
                 save(saveFile, '-struct', 'savedData', '-v7.3');
-                fprintf('Processed data saved to: %s\n', saveFile);
+                fprintf('[%s] Processed data saved to: %s\n', upper(stage), saveFile);
             catch ME
                 warning('Failed to auto-save processed data: %s', ME.message);
             end
         end
 
         function loadPreviousAnalysis(app)
-            % Load previously processed data and go directly to results
-            [file, path] = uigetfile({'*_RestingState_Processed.mat', 'Processed Analysis Files (*.mat)'}, ...
+            % Load previously processed data - either continue from post-ICA or show final results
+            [file, path] = uigetfile({'*_RestingState*.mat', 'Processed Analysis Files (*.mat)'}, ...
                 'Select Previously Processed Analysis');
 
             if file == 0
@@ -824,32 +841,111 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
                 fullPath = fullfile(path, file);
                 savedData = load(fullPath);
 
-                % Restore all data
+                % Detect processing stage (default to 'complete' for backward compatibility)
+                stage = 'complete';
+                if isfield(savedData, 'ProcessingStage')
+                    stage = savedData.ProcessingStage;
+                end
+
+                fprintf('\n=== Loading Saved Data ===\n');
+                fprintf('  Stage: %s\n', stage);
+                fprintf('  Original file: %s\n', savedData.OriginalFile);
+                fprintf('  Processed: %s\n', datestr(savedData.ProcessingDate));
+
+                % Restore base data
                 app.EEG = savedData.EEG;
                 app.EEGClean = savedData.EEGClean;
-                app.QualityMetrics = savedData.QualityMetrics;
-                app.ClinicalMetrics = savedData.ClinicalMetrics;
-                app.SegmentData = savedData.SegmentData;
-                app.StartMarkerTypes = savedData.StartMarkerTypes;
-                app.EndMarkerTypes = savedData.EndMarkerTypes;
-                app.SegmentConditions = savedData.SegmentConditions;
                 app.BadChannels = savedData.BadChannels;
                 app.BadChannelLabels = savedData.BadChannelLabels;
                 app.RemovedComponents = savedData.RemovedComponents;
                 app.EEGFile = savedData.OriginalFile;
+                app.StartMarkerTypes = savedData.StartMarkerTypes;
+                app.EndMarkerTypes = savedData.EndMarkerTypes;
+                app.SegmentConditions = savedData.SegmentConditions;
+                if isfield(savedData, 'SelectedFields')
+                    app.SelectedFields = savedData.SelectedFields;
+                end
 
-                % Update UI with loaded file info
-                app.FileInfoLabel.Text = sprintf('Loaded: %s (Processed: %s)', ...
-                    savedData.OriginalFile, datestr(savedData.ProcessingDate));
+                % Update UI
+                app.FileInfoLabel.Text = sprintf('Loaded: %s [%s]', ...
+                    savedData.OriginalFile, upper(stage));
 
-                % Generate visualizations and go directly to results
-                displayResults(app);
-                showResultsScreen(app);
+                if strcmp(stage, 'post-ica')
+                    % Post-ICA: Continue processing with current settings
+                    fprintf('\n=== Continuing Analysis from Post-ICA ===\n');
+                    fprintf('  ICA is already complete - running remaining analysis steps...\n\n');
 
-                uialert(app.UIFigure, 'Previous analysis loaded successfully!', 'Load Complete', 'Icon', 'success');
+                    % Show processing screen
+                    showProcessingScreen(app);
+
+                    % Continue from stage 6: Segment extraction
+                    EEG = app.EEGClean;
+                    EEG_original = app.EEG;
+
+                    % Stage 6: Continuous Segment Extraction
+                    if ~isempty(app.StartMarkerTypes)
+                        updateProgress(app, 6, 'Extracting Continuous Segments...');
+                        try
+                            app.SegmentData = extractRestingSegments(EEG, ...
+                                app.StartMarkerTypes, app.EndMarkerTypes, ...
+                                app.SegmentConditions, app.SelectedFields{1});
+                            fprintf('Extracted %d continuous segments\n', length(app.SegmentData));
+                        catch ME
+                            fprintf('Segment extraction failed: %s\n', ME.message);
+                            app.SegmentData = [];
+                        end
+                    else
+                        updateProgress(app, 6, 'No Markers Selected...');
+                        app.SegmentData = [];
+                    end
+
+                    % Stage 7: Quality Evaluation
+                    updateProgress(app, 7, 'Evaluating Quality...');
+                    app.QualityMetrics = computeEnhancedQualityMetrics(app, EEG, EEG_original, ...
+                        app.BadChannels, app.RemovedComponents);
+
+                    % Stage 8: Resting State Band Powers
+                    try
+                        updateProgress(app, 8, 'Computing Resting State Band Powers...');
+                        if ~isempty(app.SegmentData)
+                            restingMetrics = computeRestingStateMetrics(app.SegmentData);
+                            app.ClinicalMetrics = restingMetrics;
+                        else
+                            fprintf('No segments available for resting state analysis\n');
+                            app.ClinicalMetrics = struct();
+                        end
+                    catch ME
+                        warning('Resting state metrics failed: %s', ME.message);
+                        app.ClinicalMetrics = struct();
+                    end
+
+                    pause(0.3);
+
+                    % Generate visualizations and show results
+                    displayResults(app);
+                    showResultsScreen(app);
+
+                    % Auto-save complete analysis
+                    saveProcessedData(app, 'complete');
+
+                    uialert(app.UIFigure, 'Analysis completed from loaded post-ICA data!', 'Analysis Complete', 'Icon', 'success');
+
+                else
+                    % Complete: Just restore and display results
+                    app.QualityMetrics = savedData.QualityMetrics;
+                    app.ClinicalMetrics = savedData.ClinicalMetrics;
+                    app.SegmentData = savedData.SegmentData;
+
+                    % Generate visualizations and show results
+                    displayResults(app);
+                    showResultsScreen(app);
+
+                    uialert(app.UIFigure, 'Previous analysis loaded successfully!', 'Load Complete', 'Icon', 'success');
+                end
 
             catch ME
                 uialert(app.UIFigure, ['Failed to load analysis: ' ME.message], 'Load Error', 'Icon', 'error');
+                fprintf('Load error details: %s\n', ME.getReport());
             end
         end
 
@@ -1385,6 +1481,12 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             end
 
             app.RemovedComponents = removedComponents;
+            app.EEGClean = EEG;  % Store ICA-cleaned data
+
+            % Auto-save post-ICA data (most time-consuming step complete)
+            fprintf('\n=== Saving Post-ICA Data ===\n');
+            saveProcessedData(app, 'post-ica');
+            fprintf('Post-ICA data saved. You can reload this file to skip ICA and adjust analysis settings.\n\n');
 
             % Stage 6: Continuous Segment Extraction (using start-end marker pairs)
             if ~isempty(app.StartMarkerTypes)
@@ -1427,9 +1529,6 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
                 fprintf('Error details: %s\n', ME.getReport());
                 app.ClinicalMetrics = struct();
             end
-
-            % Store results
-            app.EEGClean = EEG;
 
             pause(0.3);
         end
