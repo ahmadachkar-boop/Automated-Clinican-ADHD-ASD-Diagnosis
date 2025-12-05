@@ -320,12 +320,21 @@ function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4, 
                     thetaAlphaEO = mean(restingMetrics.(condEO).perChannel.theta, 2) ./ ...
                                    mean(restingMetrics.(condEO).perChannel.alpha, 2);
 
+                    % Compute common color scales for comparison
+                    thetaBetaMin = min([min(thetaBetaEC), min(thetaBetaEO)]);
+                    thetaBetaMax = max([max(thetaBetaEC), max(thetaBetaEO)]);
+                    thetaAlphaMin = min([min(thetaAlphaEC), min(thetaAlphaEO)]);
+                    thetaAlphaMax = max([max(thetaAlphaEC), max(thetaAlphaEO)]);
+
                     fprintf('  Computing topographic maps...\n');
-                    % Plot topographic maps
-                    plotTopoMap(topoThetaBetaEC, thetaBetaEC, EEG, 'θ/β Ratio - Eyes Closed');
-                    plotTopoMap(topoThetaBetaEO, thetaBetaEO, EEG, 'θ/β Ratio - Eyes Open');
-                    plotTopoMap(topoThetaAlphaEC, thetaAlphaEC, EEG, 'θ/α Ratio - Eyes Closed');
-                    plotTopoMap(topoThetaAlphaEO, thetaAlphaEO, EEG, 'θ/α Ratio - Eyes Open');
+                    fprintf('  θ/β range: [%.3f, %.3f]\n', thetaBetaMin, thetaBetaMax);
+                    fprintf('  θ/α range: [%.3f, %.3f]\n', thetaAlphaMin, thetaAlphaMax);
+
+                    % Plot topographic maps with common color scales
+                    plotTopoMap(topoThetaBetaEC, thetaBetaEC, EEG, 'θ/β Ratio - Eyes Closed', [thetaBetaMin, thetaBetaMax]);
+                    plotTopoMap(topoThetaBetaEO, thetaBetaEO, EEG, 'θ/β Ratio - Eyes Open', [thetaBetaMin, thetaBetaMax]);
+                    plotTopoMap(topoThetaAlphaEC, thetaAlphaEC, EEG, 'θ/α Ratio - Eyes Closed', [thetaAlphaMin, thetaAlphaMax]);
+                    plotTopoMap(topoThetaAlphaEO, thetaAlphaEO, EEG, 'θ/α Ratio - Eyes Open', [thetaAlphaMin, thetaAlphaMax]);
                 else
                     fprintf('  ✗ No perChannel data found - topomaps cannot be generated\n');
                     fprintf('  Available fields in condition: %s\n', strjoin(fieldnames(restingMetrics.(condEC)), ', '));
@@ -343,8 +352,15 @@ function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4, 
     fprintf('=== END TOPOGRAPHIC MAP CHECK ===\n\n');
 end
 
-function plotTopoMap(ax, data, EEG, titleStr)
+function plotTopoMap(ax, data, EEG, titleStr, colorLims)
     % Helper function to plot topographic maps
+    % Inputs:
+    %   ax - axes handle
+    %   data - channel data values
+    %   EEG - EEG structure with chanlocs
+    %   titleStr - title string
+    %   colorLims - [min max] color limits (optional)
+
     cla(ax);
     hold(ax, 'on');
 
@@ -415,26 +431,23 @@ function plotTopoMap(ax, data, EEG, titleStr)
         Zi(mask) = NaN;
 
         % Plot colored surface
-        surf(ax, Xi, Yi, zeros(size(Zi)), Zi, 'EdgeColor', 'none', 'FaceAlpha', 0.8);
+        surf(ax, Xi, Yi, zeros(size(Zi)), Zi, 'EdgeColor', 'none', 'FaceAlpha', 0.9);
 
-        % Plot electrode dots
-        scatter(ax, x, y, 60, data, 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
-
-        % Labels for some electrodes
-        if length(x) < 40
-            for i = 1:length(x)
-                if isfield(EEG.chanlocs, 'labels')
-                    text(ax, x(i), y(i), EEG.chanlocs(i).labels, ...
-                        'FontSize', 6, 'HorizontalAlignment', 'center', ...
-                        'VerticalAlignment', 'bottom');
-                end
-            end
-        end
+        % Plot electrode dots - small and subtle
+        scatter(ax, x, y, 15, 'k', 'filled', 'MarkerFaceAlpha', 0.4, 'MarkerEdgeColor', 'none');
 
         % Formatting
         colormap(ax, jet);
         cb = colorbar(ax);
         cb.Label.String = 'Ratio Value';
+        cb.FontSize = 9;
+
+        % Apply color limits if provided
+        if nargin >= 5 && ~isempty(colorLims)
+            caxis(ax, colorLims);
+            fprintf('  Applied color limits: [%.3f, %.3f]\n', colorLims(1), colorLims(2));
+        end
+
         axis(ax, 'equal');
         axis(ax, 'off');
         xlim(ax, [-0.65 0.65]);
