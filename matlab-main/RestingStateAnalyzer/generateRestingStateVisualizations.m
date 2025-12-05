@@ -496,8 +496,8 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
         % Plot colored surface
         surf(ax, Xi, Yi, zeros(size(Zi)), Zi, 'EdgeColor', 'none', 'FaceAlpha', 0.9);
 
-        % Plot electrode dots - small and subtle
-        scatter(ax, x, y, 15, 'k', 'filled', 'MarkerFaceAlpha', 0.4, 'MarkerEdgeColor', 'none');
+        % Plot electrode dots - very small and subtle to avoid obscuring interpolation
+        scatter(ax, x, y, 5, 'k', 'filled', 'MarkerFaceAlpha', 0.15, 'MarkerEdgeColor', 'none');
 
         % Formatting
         colormap(ax, jet);
