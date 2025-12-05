@@ -313,58 +313,65 @@ function plotTopoMap(ax, data, EEG, titleStr)
     cla(ax);
     hold(ax, 'on');
 
+    fprintf('Plotting topomap: %s\n', titleStr);
+    fprintf('  Data size: %d channels\n', length(data));
+    fprintf('  EEG chanlocs: %d\n', length(EEG.chanlocs));
+
     try
-        % Get channel locations
-        if ~isfield(EEG.chanlocs, 'theta') || ~isfield(EEG.chanlocs, 'radius')
-            % Convert to polar coordinates if needed
-            EEG = convertlocs(EEG.chanlocs, 'cart2topo');
-            chanlocs = EEG;
+        % Simple approach: use cartesian coordinates directly
+        if isfield(EEG.chanlocs, 'X') && isfield(EEG.chanlocs, 'Y')
+            x = [EEG.chanlocs.X];
+            y = [EEG.chanlocs.Y];
+            z = [EEG.chanlocs.Z];
+
+            % Project to 2D (top view)
+            % Normalize to unit circle
+            xy_dist = sqrt(x.^2 + y.^2);
+            max_dist = max(xy_dist);
+            if max_dist > 0
+                x = x / max_dist * 0.45;  % Scale to 0.45 radius
+                y = y / max_dist * 0.45;
+            end
+
+            fprintf('  X range: [%.2f, %.2f], Y range: [%.2f, %.2f]\n', min(x), max(x), min(y), max(y));
+
+        elseif isfield(EEG.chanlocs, 'theta') && isfield(EEG.chanlocs, 'radius')
+            % Use polar coordinates
+            theta = [EEG.chanlocs.theta];
+            radius = [EEG.chanlocs.radius];
+            [x, y] = pol2cart(theta * pi/180, radius * 0.45);
+
         else
-            chanlocs = EEG.chanlocs;
+            error('No valid channel location coordinates found');
         end
 
-        % Get channel positions
-        theta = [chanlocs.theta];
-        radius = [chanlocs.radius];
-
-        % Convert to cartesian for plotting
-        [x, y] = pol2cart(theta * pi/180, radius);
-
-        % Normalize data for color mapping
-        dataMin = min(data);
-        dataMax = max(data);
-        dataNorm = (data - dataMin) / (dataMax - dataMin);
-
-        % Create head outline
+        % Draw head outline
         headRadius = 0.5;
         angles = linspace(0, 2*pi, 100);
-        headX = headRadius * cos(angles);
-        headY = headRadius * sin(angles);
-        plot(ax, headX, headY, 'k', 'LineWidth', 2);
+        plot(ax, headRadius * cos(angles), headRadius * sin(angles), 'k', 'LineWidth', 3);
 
-        % Add nose
-        noseX = [headRadius*0.15, 0, -headRadius*0.15];
-        noseY = [headRadius, headRadius*1.15, headRadius];
+        % Draw nose (triangle pointing up)
+        noseX = [0.08, 0, -0.08, 0.08];
+        noseY = [0.5, 0.58, 0.5, 0.5];
         plot(ax, noseX, noseY, 'k', 'LineWidth', 2);
 
-        % Add ears
+        % Draw ears
         earWidth = 0.08;
-        earHeight = 0.15;
         % Left ear
-        leftEarX = [-headRadius, -headRadius-earWidth, -headRadius-earWidth, -headRadius];
-        leftEarY = [earHeight/2, earHeight/2, -earHeight/2, -earHeight/2];
-        plot(ax, leftEarX, leftEarY, 'k', 'LineWidth', 2);
+        plot(ax, [-0.5, -0.5-earWidth], [0.1, 0.1], 'k', 'LineWidth', 2);
+        plot(ax, [-0.5, -0.5-earWidth], [-0.1, -0.1], 'k', 'LineWidth', 2);
+        plot(ax, [-0.5-earWidth, -0.5-earWidth], [0.1, -0.1], 'k', 'LineWidth', 2);
         % Right ear
-        rightEarX = [headRadius, headRadius+earWidth, headRadius+earWidth, headRadius];
-        rightEarY = [earHeight/2, earHeight/2, -earHeight/2, -earHeight/2];
-        plot(ax, rightEarX, rightEarY, 'k', 'LineWidth', 2);
+        plot(ax, [0.5, 0.5+earWidth], [0.1, 0.1], 'k', 'LineWidth', 2);
+        plot(ax, [0.5, 0.5+earWidth], [-0.1, -0.1], 'k', 'LineWidth', 2);
+        plot(ax, [0.5+earWidth, 0.5+earWidth], [0.1, -0.1], 'k', 'LineWidth', 2);
 
         % Create interpolated surface
         xi = linspace(-headRadius, headRadius, 100);
         yi = linspace(-headRadius, headRadius, 100);
         [Xi, Yi] = meshgrid(xi, yi);
 
-        % Interpolate data
+        % Interpolate data onto grid
         F = scatteredInterpolant(x', y', data, 'natural', 'none');
         Zi = F(Xi, Yi);
 
@@ -372,50 +379,51 @@ function plotTopoMap(ax, data, EEG, titleStr)
         mask = sqrt(Xi.^2 + Yi.^2) > headRadius;
         Zi(mask) = NaN;
 
-        % Plot surface
-        surf(ax, Xi, Yi, zeros(size(Zi)), Zi, 'EdgeColor', 'none', 'FaceColor', 'interp');
+        % Plot colored surface
+        surf(ax, Xi, Yi, zeros(size(Zi)), Zi, 'EdgeColor', 'none', 'FaceAlpha', 0.8);
 
-        % Plot electrode positions
-        scatter(ax, x, y, 40, data, 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+        % Plot electrode dots
+        scatter(ax, x, y, 60, data, 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+
+        % Labels for some electrodes
+        if length(x) < 40
+            for i = 1:length(x)
+                if isfield(EEG.chanlocs, 'labels')
+                    text(ax, x(i), y(i), EEG.chanlocs(i).labels, ...
+                        'FontSize', 6, 'HorizontalAlignment', 'center', ...
+                        'VerticalAlignment', 'bottom');
+                end
+            end
+        end
 
         % Formatting
         colormap(ax, jet);
-        c = colorbar(ax);
-        c.Label.String = 'Ratio';
-        axis(ax, 'equal', 'off');
+        cb = colorbar(ax);
+        cb.Label.String = 'Ratio Value';
+        axis(ax, 'equal');
+        axis(ax, 'off');
+        xlim(ax, [-0.65 0.65]);
+        ylim(ax, [-0.65 0.65]);
         view(ax, 0, 90);
-        xlim(ax, [-headRadius*1.3 headRadius*1.3]);
-        ylim(ax, [-headRadius*1.3 headRadius*1.3]);
-        title(ax, titleStr, 'FontSize', 10, 'FontWeight', 'bold');
+        title(ax, titleStr, 'FontSize', 11, 'FontWeight', 'bold');
         hold(ax, 'off');
+
+        fprintf('  Topomap plotted successfully!\n');
 
     catch ME
-        % Fallback: simple scatter plot with circle
-        warning('Advanced topoplot failed: %s. Using simple visualization.', ME.message);
-        cla(ax);
-        hold(ax, 'on');
+        fprintf('  ERROR in topomap: %s\n', ME.message);
 
-        % Draw head circle
+        % Ultra-simple fallback
+        cla(ax);
+
+        % Just draw a circle and some text
         angles = linspace(0, 2*pi, 100);
         plot(ax, cos(angles), sin(angles), 'k', 'LineWidth', 2);
-
-        if isfield(EEG.chanlocs, 'X') && isfield(EEG.chanlocs, 'Y')
-            x = [EEG.chanlocs.X];
-            y = [EEG.chanlocs.Y];
-            % Normalize positions
-            maxDist = max(sqrt(x.^2 + y.^2));
-            x = x / maxDist * 0.9;
-            y = y / maxDist * 0.9;
-            scatter(ax, x, y, 100, data, 'filled');
-            colormap(ax, jet);
-            colorbar(ax);
-        else
-            text(ax, 0, 0, 'Channel locations unavailable', ...
-                'HorizontalAlignment', 'center');
-        end
-
+        text(ax, 0, 0, sprintf('Topomap Error\n%s', ME.message), ...
+            'HorizontalAlignment', 'center', 'FontSize', 8);
         axis(ax, 'equal', 'off');
+        xlim(ax, [-1.2 1.2]);
+        ylim(ax, [-1.2 1.2]);
         title(ax, titleStr, 'FontSize', 10);
-        hold(ax, 'off');
     end
 end
