@@ -273,6 +273,9 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             scaleX = panelWidth / targetWidth;
             scaleY = panelHeight / targetHeight;
 
+            fprintf('[DEBUG] scaleProcessingPanelContent: panel=%.0fx%.0f, scaleX=%.3f, scaleY=%.3f\n', ...
+                panelWidth, panelHeight, scaleX, scaleY);
+
             % Scale Processing Label (300, 880, 600, 50)
             app.ProcessingLabel.Position = [300*scaleX 880*scaleY 600*scaleX 50*scaleY];
 
@@ -282,8 +285,10 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             % Scale Stage Label (300, 720, 600, 30)
             app.StageLabel.Position = [300*scaleX 720*scaleY 600*scaleX 30*scaleY];
 
-            % Scale Progress Bar - keep height fixed at 20px to avoid fat/thin issues
-            app.ProgressBar.Position = [300*scaleX 650*scaleY 600*scaleX 20];
+            % Scale Progress Bar - keep height ALWAYS at 20px
+            progressBarPos = [300*scaleX 650*scaleY 600*scaleX 20];
+            app.ProgressBar.Position = progressBarPos;
+            fprintf('[DEBUG] ProgressBar.Position set to: [%.1f %.1f %.1f %.1f]\n', progressBarPos);
 
             % Scale Progress Text (300, 610, 600, 25)
             app.ProgressText.Position = [300*scaleX 610*scaleY 600*scaleX 25*scaleY];
@@ -769,6 +774,11 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.ProcessingPanel.Visible = 'on';
             app.ResultsPanel.Visible = 'off';
             app.CurrentStage = 0;
+
+            % Force panel re-centering to ensure correct scaling
+            fprintf('[DEBUG] showProcessingScreen: calling centerPanels\n');
+            centerPanels(app);
+            drawnow;
         end
 
         function showResultsScreen(app)
