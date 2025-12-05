@@ -396,40 +396,62 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
             error('No valid channel location coordinates found');
         end
 
-        % Identify and exclude Cz (reference electrode) from interpolation
-        % Cz will be interpolated from surrounding electrodes instead
-        czIdx = [];
+        % Identify and exclude reference electrode from interpolation
+        % Reference will be interpolated from surrounding electrodes instead
+        refIdx = [];
+
+        % Method 1: Try common reference electrode labels
         if isfield(EEG.chanlocs, 'labels')
             labels = {EEG.chanlocs.labels};
-            fprintf('  [DEBUG] Looking for Cz in %d channel labels\n', length(labels));
+            fprintf('  [DEBUG] Looking for reference electrode in %d channels\n', length(labels));
 
-            % Try multiple label patterns for Cz
-            czIdx = find(strcmpi(labels, 'Cz') | strcmpi(labels, 'CZ') | ...
-                        strcmp(labels, 'Cz') | strcmp(labels, 'CZ'));
+            % Try multiple common reference electrode names
+            refIdx = find(strcmpi(labels, 'Cz') | strcmpi(labels, 'CZ') | ...
+                         strcmpi(labels, 'E129') | strcmpi(labels, 'REF') | ...
+                         strcmpi(labels, 'VREF') | strcmpi(labels, 'Reference') | ...
+                         strcmpi(labels, 'CMS') | strcmpi(labels, 'DRL'));
 
-            % If not found, list all labels to help diagnose
-            if isempty(czIdx)
-                fprintf('  [DEBUG] Cz not found! Channel labels: %s\n', strjoin(labels, ', '));
+            if ~isempty(refIdx)
+                fprintf('  [DEBUG] Found reference by label: index %d, label "%s"\n', ...
+                    refIdx(1), labels{refIdx(1)});
             end
-        else
-            fprintf('  [DEBUG] No channel labels field found\n');
         end
 
-        % Create interpolation data excluding Cz
-        if ~isempty(czIdx)
-            fprintf('  [DEBUG] Found Cz at index %d (label: "%s") - EXCLUDING from interpolation\n', ...
-                czIdx, EEG.chanlocs(czIdx).labels);
-            fprintf('  [DEBUG] Cz data value: %.6f (should be very low if reference)\n', data(czIdx));
+        % Method 2: If not found by label, auto-detect by finding channel with lowest ratio value
+        if isempty(refIdx)
+            fprintf('  [DEBUG] Reference not found by label - auto-detecting by data value\n');
+
+            % Find channel with minimum ratio value (likely the reference)
+            [minVal, refIdx] = min(data);
+
+            % Only use this if it's significantly lower than median (outlier check)
+            medianVal = median(data);
+            if minVal < 0.5 * medianVal  % Reference should be much lower
+                fprintf('  [DEBUG] Auto-detected reference: index %d, value %.6f (median=%.6f)\n', ...
+                    refIdx, minVal, medianVal);
+                if isfield(EEG.chanlocs, 'labels')
+                    fprintf('  [DEBUG] Auto-detected channel label: "%s"\n', EEG.chanlocs(refIdx).labels);
+                end
+            else
+                fprintf('  [DEBUG] No clear reference outlier found (min=%.6f, median=%.6f)\n', minVal, medianVal);
+                refIdx = [];  % Don't exclude anything
+            end
+        end
+
+        % Create interpolation data excluding reference
+        if ~isempty(refIdx)
+            fprintf('  [DEBUG] EXCLUDING reference channel %d from interpolation\n', refIdx);
+            fprintf('  [DEBUG] Reference data value: %.6f\n', data(refIdx));
 
             interpMask = true(size(x));
-            interpMask(czIdx) = false;
+            interpMask(refIdx) = false;
             x_interp = x(interpMask);
             y_interp = y(interpMask);
             data_interp = data(interpMask);
 
-            fprintf('  [DEBUG] Interpolation using %d channels (excluded Cz)\n', length(x_interp));
+            fprintf('  [DEBUG] Interpolation using %d channels (excluded reference)\n', length(x_interp));
         else
-            fprintf('  [DEBUG] WARNING: Cz not found - using all %d channels for interpolation\n', length(x));
+            fprintf('  [DEBUG] No reference electrode to exclude - using all %d channels\n', length(x));
             x_interp = x;
             y_interp = y;
             data_interp = data;
