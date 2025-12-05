@@ -565,28 +565,28 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
 
             % Plot 1: Relative Band Powers (top left)
             app.ThetaBetaAxes = uiaxes(app.ClinicalPanel);
-            app.ThetaBetaAxes.Position = [30 830 480 320];  % Top row at Y=830
+            app.ThetaBetaAxes.Position = [30 1250 480 320];  % Top row near panel top
             title(app.ThetaBetaAxes, 'Relative Band Powers', 'FontSize', 11);
 
             % Plot 2: Absolute Band Powers (top right)
             app.MultiBandAxes = uiaxes(app.ClinicalPanel);
-            app.MultiBandAxes.Position = [550 830 480 320];  % Top row at Y=830
+            app.MultiBandAxes.Position = [550 1250 480 320];  % Top row near panel top
             title(app.MultiBandAxes, 'Absolute Band Powers', 'FontSize', 11);
 
             % Plot 3: Band Power Differences (bottom left)
             app.AsymmetryAxes = uiaxes(app.ClinicalPanel);
-            app.AsymmetryAxes.Position = [30 460 480 320];  % Bottom row at Y=460
+            app.AsymmetryAxes.Position = [30 880 480 320];  % Second row
             title(app.AsymmetryAxes, 'Band Power Differences', 'FontSize', 11);
 
             % Plot 4: Detailed Statistics (bottom right)
             app.BandBarAxes = uiaxes(app.ClinicalPanel);
-            app.BandBarAxes.Position = [550 460 480 320];  % Bottom row at Y=460
+            app.BandBarAxes.Position = [550 880 480 320];  % Second row
             title(app.BandBarAxes, 'Analysis Summary', 'FontSize', 11);
 
             % === TOPOGRAPHIC RATIO MAPS ===
             % Section Title
             topoTitle = uilabel(app.ClinicalPanel);
-            topoTitle.Position = [30 400 1000 30];
+            topoTitle.Position = [30 820 1000 30];
             topoTitle.Text = 'Topographic Maps: Theta/Beta and Theta/Alpha Ratios';
             topoTitle.FontSize = 14;
             topoTitle.FontWeight = 'bold';
@@ -594,20 +594,20 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
 
             % Top row: Theta/Beta Ratios
             app.TopoThetaBetaEC = uiaxes(app.ClinicalPanel);
-            app.TopoThetaBetaEC.Position = [80 200 450 180];
+            app.TopoThetaBetaEC.Position = [80 620 450 180];
             title(app.TopoThetaBetaEC, 'θ/β Ratio - Eyes Closed', 'FontSize', 10);
 
             app.TopoThetaBetaEO = uiaxes(app.ClinicalPanel);
-            app.TopoThetaBetaEO.Position = [570 200 450 180];
+            app.TopoThetaBetaEO.Position = [570 620 450 180];
             title(app.TopoThetaBetaEO, 'θ/β Ratio - Eyes Open', 'FontSize', 10);
 
             % Bottom row: Theta/Alpha Ratios
             app.TopoThetaAlphaEC = uiaxes(app.ClinicalPanel);
-            app.TopoThetaAlphaEC.Position = [80 10 450 180];
+            app.TopoThetaAlphaEC.Position = [80 430 450 180];
             title(app.TopoThetaAlphaEC, 'θ/α Ratio - Eyes Closed', 'FontSize', 10);
 
             app.TopoThetaAlphaEO = uiaxes(app.ClinicalPanel);
-            app.TopoThetaAlphaEO.Position = [570 10 450 180];
+            app.TopoThetaAlphaEO.Position = [570 430 450 180];
             title(app.TopoThetaAlphaEO, 'θ/α Ratio - Eyes Open', 'FontSize', 10);
 
             % === TAB 3: EPOCH ANALYSIS ===
