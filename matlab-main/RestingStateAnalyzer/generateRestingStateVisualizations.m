@@ -396,6 +396,28 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
             error('No valid channel location coordinates found');
         end
 
+        % Identify and exclude Cz (reference electrode) from interpolation
+        % Cz will be interpolated from surrounding electrodes instead
+        czIdx = [];
+        if isfield(EEG.chanlocs, 'labels')
+            labels = {EEG.chanlocs.labels};
+            czIdx = find(strcmpi(labels, 'Cz') | strcmpi(labels, 'CZ'));
+        end
+
+        % Create interpolation data excluding Cz
+        if ~isempty(czIdx)
+            fprintf('  Found Cz at index %d - excluding from interpolation\n', czIdx);
+            interpMask = true(size(x));
+            interpMask(czIdx) = false;
+            x_interp = x(interpMask);
+            y_interp = y(interpMask);
+            data_interp = data(interpMask);
+        else
+            x_interp = x;
+            y_interp = y;
+            data_interp = data;
+        end
+
         % Draw head outline
         headRadius = 0.5;
         angles = linspace(0, 2*pi, 100);
@@ -425,7 +447,8 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
 
         % Interpolate using only real electrode data (no extrapolation)
         % Natural interpolation within electrode array, NaN outside
-        F = scatteredInterpolant(x', y', data, 'natural', 'none');
+        % Uses filtered data (excluding Cz) so reference electrode is interpolated
+        F = scatteredInterpolant(x_interp', y_interp', data_interp, 'natural', 'none');
         Zi = F(Xi, Yi);
 
         % Don't mask - let colors overflow naturally based on interpolation
