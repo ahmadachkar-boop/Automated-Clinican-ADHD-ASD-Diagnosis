@@ -54,6 +54,10 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
         MultiBandAxes           matlab.ui.control.UIAxes
         AsymmetryAxes           matlab.ui.control.UIAxes
         BandBarAxes             matlab.ui.control.UIAxes
+        TopoThetaBetaEC         matlab.ui.control.UIAxes  % Theta/Beta Eyes Closed
+        TopoThetaBetaEO         matlab.ui.control.UIAxes  % Theta/Beta Eyes Open
+        TopoThetaAlphaEC        matlab.ui.control.UIAxes  % Theta/Alpha Eyes Closed
+        TopoThetaAlphaEO        matlab.ui.control.UIAxes  % Theta/Alpha Eyes Open
 
         % Summary Tab Components
         MetricsPanel            matlab.ui.container.Panel
@@ -537,7 +541,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
 
             % Clinical Visualization Panel (tall panel for scrolling)
             app.ClinicalPanel = uipanel(app.ClinicalTab);
-            app.ClinicalPanel.Position = [10 10 1070 1200];  % Tall panel (1200px height) for scrolling
+            app.ClinicalPanel.Position = [10 10 1070 1600];  % Tall panel (1600px height) for scrolling with topo maps
             app.ClinicalPanel.BackgroundColor = [1 1 1];
             app.ClinicalPanel.BorderType = 'none';
 
@@ -560,6 +564,33 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.BandBarAxes = uiaxes(app.ClinicalPanel);
             app.BandBarAxes.Position = [550 460 480 320];  % Bottom row at Y=460
             title(app.BandBarAxes, 'Analysis Summary', 'FontSize', 11);
+
+            % === TOPOGRAPHIC RATIO MAPS ===
+            % Section Title
+            topoTitle = uilabel(app.ClinicalPanel);
+            topoTitle.Position = [30 400 1000 30];
+            topoTitle.Text = 'Topographic Maps: Theta/Beta and Theta/Alpha Ratios';
+            topoTitle.FontSize = 14;
+            topoTitle.FontWeight = 'bold';
+            topoTitle.HorizontalAlignment = 'center';
+
+            % Top row: Theta/Beta Ratios
+            app.TopoThetaBetaEC = uiaxes(app.ClinicalPanel);
+            app.TopoThetaBetaEC.Position = [80 200 450 180];
+            title(app.TopoThetaBetaEC, 'θ/β Ratio - Eyes Closed', 'FontSize', 10);
+
+            app.TopoThetaBetaEO = uiaxes(app.ClinicalPanel);
+            app.TopoThetaBetaEO.Position = [570 200 450 180];
+            title(app.TopoThetaBetaEO, 'θ/β Ratio - Eyes Open', 'FontSize', 10);
+
+            % Bottom row: Theta/Alpha Ratios
+            app.TopoThetaAlphaEC = uiaxes(app.ClinicalPanel);
+            app.TopoThetaAlphaEC.Position = [80 10 450 180];
+            title(app.TopoThetaAlphaEC, 'θ/α Ratio - Eyes Closed', 'FontSize', 10);
+
+            app.TopoThetaAlphaEO = uiaxes(app.ClinicalPanel);
+            app.TopoThetaAlphaEO.Position = [570 10 450 180];
+            title(app.TopoThetaAlphaEO, 'θ/α Ratio - Eyes Open', 'FontSize', 10);
 
             % === TAB 3: EPOCH ANALYSIS ===
             app.EpochTab = uitab(app.ResultsTabGroup);
@@ -1435,7 +1466,8 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             if ~isempty(fieldnames(app.ClinicalMetrics))
                 try
                     generateRestingStateVisualizations(app.ClinicalMetrics, ...
-                        app.ThetaBetaAxes, app.MultiBandAxes, app.AsymmetryAxes, app.BandBarAxes);
+                        app.ThetaBetaAxes, app.MultiBandAxes, app.AsymmetryAxes, app.BandBarAxes, ...
+                        app.TopoThetaBetaEC, app.TopoThetaBetaEO, app.TopoThetaAlphaEC, app.TopoThetaAlphaEO, app.EEG);
                 catch ME
                     warning('Resting state visualization generation failed: %s', ME.message);
                     fprintf('Error details: %s\n', ME.getReport());

@@ -1,10 +1,13 @@
-function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4)
+function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4, topoThetaBetaEC, topoThetaBetaEO, topoThetaAlphaEC, topoThetaAlphaEO, EEG)
     % Generate visualizations comparing resting state conditions
     % Shows band power comparisons between conditions (e.g., eyes open vs closed)
     %
     % Inputs:
     %   restingMetrics - Output from computeRestingStateMetrics
     %   ax1, ax2, ax3, ax4 - Axes handles for the 4 clinical tab plots
+    %   topoThetaBetaEC/EO - Axes for theta/beta ratio topographic maps
+    %   topoThetaAlphaEC/EO - Axes for theta/alpha ratio topographic maps
+    %   EEG - EEG structure with channel locations
 
     if isempty(restingMetrics) || ~isfield(restingMetrics, 'conditions')
         % No data to visualize
@@ -261,5 +264,74 @@ function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4)
         end
         text(ax4, 0.08, yPos, interpText, ...
             'Units', 'normalized', 'FontSize', 9, 'Color', [0.2 0.5 0.2]);
+    end
+
+    % TOPOGRAPHIC MAPS: Theta/Beta and Theta/Alpha Ratios
+    % Only generate if we have channel locations and per-channel data
+    if nargin >= 10 && ~isempty(EEG) && isfield(EEG, 'chanlocs') && length(EEG.chanlocs) > 0
+        try
+            % Find eyes-closed and eyes-open conditions
+            eyesClosedIdx = find(contains(lower(conditions), 'closed'));
+            eyesOpenIdx = find(contains(lower(conditions), 'open'));
+
+            if ~isempty(eyesClosedIdx) && ~isempty(eyesOpenIdx)
+                condEC = conditions{eyesClosedIdx(1)};
+                condEO = conditions{eyesOpenIdx(1)};
+
+                % Get per-channel data
+                if isfield(restingMetrics.(condEC), 'perChannel')
+                    % Compute ratios for each channel
+                    numChans = size(restingMetrics.(condEC).perChannel.theta, 1);
+
+                    % Eyes Closed ratios
+                    thetaBetaEC = mean(restingMetrics.(condEC).perChannel.theta, 2) ./ ...
+                                  mean(restingMetrics.(condEC).perChannel.beta, 2);
+                    thetaAlphaEC = mean(restingMetrics.(condEC).perChannel.theta, 2) ./ ...
+                                   mean(restingMetrics.(condEC).perChannel.alpha, 2);
+
+                    % Eyes Open ratios
+                    thetaBetaEO = mean(restingMetrics.(condEO).perChannel.theta, 2) ./ ...
+                                  mean(restingMetrics.(condEO).perChannel.beta, 2);
+                    thetaAlphaEO = mean(restingMetrics.(condEO).perChannel.theta, 2) ./ ...
+                                   mean(restingMetrics.(condEO).perChannel.alpha, 2);
+
+                    % Plot topographic maps
+                    plotTopoMap(topoThetaBetaEC, thetaBetaEC, EEG, 'θ/β Ratio - Eyes Closed');
+                    plotTopoMap(topoThetaBetaEO, thetaBetaEO, EEG, 'θ/β Ratio - Eyes Open');
+                    plotTopoMap(topoThetaAlphaEC, thetaAlphaEC, EEG, 'θ/α Ratio - Eyes Closed');
+                    plotTopoMap(topoThetaAlphaEO, thetaAlphaEO, EEG, 'θ/α Ratio - Eyes Open');
+                end
+            end
+        catch ME
+            warning('Topographic map generation failed: %s', ME.message);
+        end
+    end
+end
+
+function plotTopoMap(ax, data, EEG, titleStr)
+    % Helper function to plot topographic maps
+    cla(ax);
+
+    try
+        % Use topoplot if available
+        topoplot(data, EEG.chanlocs, 'maplimits', 'absmax', ...
+                 'electrodes', 'on', 'style', 'map', 'shading', 'interp', ...
+                 'colormap', jet, 'parent', ax);
+        title(ax, titleStr, 'FontSize', 10);
+        colorbar(ax);
+    catch
+        % Fallback: simple scatter plot
+        if isfield(EEG.chanlocs, 'X') && isfield(EEG.chanlocs, 'Y')
+            x = [EEG.chanlocs.X];
+            y = [EEG.chanlocs.Y];
+            scatter(ax, x, y, 100, data, 'filled');
+            colormap(ax, jet);
+            colorbar(ax);
+            axis(ax, 'equal', 'off');
+            title(ax, titleStr, 'FontSize', 10);
+        else
+            text(ax, 0.5, 0.5, 'Channel locations unavailable', ...
+                'Units', 'normalized', 'HorizontalAlignment', 'center');
+        end
     end
 end
