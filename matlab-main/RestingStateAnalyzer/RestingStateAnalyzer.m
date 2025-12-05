@@ -416,7 +416,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
 
             % Progress Bar (using UIAxes)
             app.ProgressBar = uiaxes(app.ProcessingPanel);
-            app.ProgressBar.Position = [300 650 600 40];  % Moved up 200px
+            app.ProgressBar.Position = [300 650 600 20];  % Fixed thin height
             app.ProgressBar.XLim = [0 100];
             app.ProgressBar.YLim = [0 1];
             app.ProgressBar.XTick = [];
