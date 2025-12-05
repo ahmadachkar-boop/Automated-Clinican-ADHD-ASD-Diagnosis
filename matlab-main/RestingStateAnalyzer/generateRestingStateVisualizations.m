@@ -401,18 +401,35 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
         czIdx = [];
         if isfield(EEG.chanlocs, 'labels')
             labels = {EEG.chanlocs.labels};
-            czIdx = find(strcmpi(labels, 'Cz') | strcmpi(labels, 'CZ'));
+            fprintf('  [DEBUG] Looking for Cz in %d channel labels\n', length(labels));
+
+            % Try multiple label patterns for Cz
+            czIdx = find(strcmpi(labels, 'Cz') | strcmpi(labels, 'CZ') | ...
+                        strcmp(labels, 'Cz') | strcmp(labels, 'CZ'));
+
+            % If not found, list all labels to help diagnose
+            if isempty(czIdx)
+                fprintf('  [DEBUG] Cz not found! Channel labels: %s\n', strjoin(labels, ', '));
+            end
+        else
+            fprintf('  [DEBUG] No channel labels field found\n');
         end
 
         % Create interpolation data excluding Cz
         if ~isempty(czIdx)
-            fprintf('  Found Cz at index %d - excluding from interpolation\n', czIdx);
+            fprintf('  [DEBUG] Found Cz at index %d (label: "%s") - EXCLUDING from interpolation\n', ...
+                czIdx, EEG.chanlocs(czIdx).labels);
+            fprintf('  [DEBUG] Cz data value: %.6f (should be very low if reference)\n', data(czIdx));
+
             interpMask = true(size(x));
             interpMask(czIdx) = false;
             x_interp = x(interpMask);
             y_interp = y(interpMask);
             data_interp = data(interpMask);
+
+            fprintf('  [DEBUG] Interpolation using %d channels (excluded Cz)\n', length(x_interp));
         else
+            fprintf('  [DEBUG] WARNING: Cz not found - using all %d channels for interpolation\n', length(x));
             x_interp = x;
             y_interp = y;
             data_interp = data;
