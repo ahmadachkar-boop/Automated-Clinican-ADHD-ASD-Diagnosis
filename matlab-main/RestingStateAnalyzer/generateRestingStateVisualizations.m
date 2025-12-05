@@ -311,27 +311,111 @@ end
 function plotTopoMap(ax, data, EEG, titleStr)
     % Helper function to plot topographic maps
     cla(ax);
+    hold(ax, 'on');
 
     try
-        % Use topoplot if available
-        topoplot(data, EEG.chanlocs, 'maplimits', 'absmax', ...
-                 'electrodes', 'on', 'style', 'map', 'shading', 'interp', ...
-                 'colormap', jet, 'parent', ax);
-        title(ax, titleStr, 'FontSize', 10);
-        colorbar(ax);
-    catch
-        % Fallback: simple scatter plot
+        % Get channel locations
+        if ~isfield(EEG.chanlocs, 'theta') || ~isfield(EEG.chanlocs, 'radius')
+            % Convert to polar coordinates if needed
+            EEG = convertlocs(EEG.chanlocs, 'cart2topo');
+            chanlocs = EEG;
+        else
+            chanlocs = EEG.chanlocs;
+        end
+
+        % Get channel positions
+        theta = [chanlocs.theta];
+        radius = [chanlocs.radius];
+
+        % Convert to cartesian for plotting
+        [x, y] = pol2cart(theta * pi/180, radius);
+
+        % Normalize data for color mapping
+        dataMin = min(data);
+        dataMax = max(data);
+        dataNorm = (data - dataMin) / (dataMax - dataMin);
+
+        % Create head outline
+        headRadius = 0.5;
+        angles = linspace(0, 2*pi, 100);
+        headX = headRadius * cos(angles);
+        headY = headRadius * sin(angles);
+        plot(ax, headX, headY, 'k', 'LineWidth', 2);
+
+        % Add nose
+        noseX = [headRadius*0.15, 0, -headRadius*0.15];
+        noseY = [headRadius, headRadius*1.15, headRadius];
+        plot(ax, noseX, noseY, 'k', 'LineWidth', 2);
+
+        % Add ears
+        earWidth = 0.08;
+        earHeight = 0.15;
+        % Left ear
+        leftEarX = [-headRadius, -headRadius-earWidth, -headRadius-earWidth, -headRadius];
+        leftEarY = [earHeight/2, earHeight/2, -earHeight/2, -earHeight/2];
+        plot(ax, leftEarX, leftEarY, 'k', 'LineWidth', 2);
+        % Right ear
+        rightEarX = [headRadius, headRadius+earWidth, headRadius+earWidth, headRadius];
+        rightEarY = [earHeight/2, earHeight/2, -earHeight/2, -earHeight/2];
+        plot(ax, rightEarX, rightEarY, 'k', 'LineWidth', 2);
+
+        % Create interpolated surface
+        xi = linspace(-headRadius, headRadius, 100);
+        yi = linspace(-headRadius, headRadius, 100);
+        [Xi, Yi] = meshgrid(xi, yi);
+
+        % Interpolate data
+        F = scatteredInterpolant(x', y', data, 'natural', 'none');
+        Zi = F(Xi, Yi);
+
+        % Mask outside head
+        mask = sqrt(Xi.^2 + Yi.^2) > headRadius;
+        Zi(mask) = NaN;
+
+        % Plot surface
+        surf(ax, Xi, Yi, zeros(size(Zi)), Zi, 'EdgeColor', 'none', 'FaceColor', 'interp');
+
+        % Plot electrode positions
+        scatter(ax, x, y, 40, data, 'filled', 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
+
+        % Formatting
+        colormap(ax, jet);
+        c = colorbar(ax);
+        c.Label.String = 'Ratio';
+        axis(ax, 'equal', 'off');
+        view(ax, 0, 90);
+        xlim(ax, [-headRadius*1.3 headRadius*1.3]);
+        ylim(ax, [-headRadius*1.3 headRadius*1.3]);
+        title(ax, titleStr, 'FontSize', 10, 'FontWeight', 'bold');
+        hold(ax, 'off');
+
+    catch ME
+        % Fallback: simple scatter plot with circle
+        warning('Advanced topoplot failed: %s. Using simple visualization.', ME.message);
+        cla(ax);
+        hold(ax, 'on');
+
+        % Draw head circle
+        angles = linspace(0, 2*pi, 100);
+        plot(ax, cos(angles), sin(angles), 'k', 'LineWidth', 2);
+
         if isfield(EEG.chanlocs, 'X') && isfield(EEG.chanlocs, 'Y')
             x = [EEG.chanlocs.X];
             y = [EEG.chanlocs.Y];
+            % Normalize positions
+            maxDist = max(sqrt(x.^2 + y.^2));
+            x = x / maxDist * 0.9;
+            y = y / maxDist * 0.9;
             scatter(ax, x, y, 100, data, 'filled');
             colormap(ax, jet);
             colorbar(ax);
-            axis(ax, 'equal', 'off');
-            title(ax, titleStr, 'FontSize', 10);
         else
-            text(ax, 0.5, 0.5, 'Channel locations unavailable', ...
-                'Units', 'normalized', 'HorizontalAlignment', 'center');
+            text(ax, 0, 0, 'Channel locations unavailable', ...
+                'HorizontalAlignment', 'center');
         end
+
+        axis(ax, 'equal', 'off');
+        title(ax, titleStr, 'FontSize', 10);
+        hold(ax, 'off');
     end
 end

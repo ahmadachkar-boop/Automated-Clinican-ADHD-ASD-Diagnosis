@@ -14,6 +14,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
         TitleLabel              matlab.ui.control.Label
         SubtitleLabel           matlab.ui.control.Label
         BrowseButton            matlab.ui.control.Button
+        LoadButton              matlab.ui.control.Button
         FileInfoLabel           matlab.ui.control.Label
         EventSelectionButton    matlab.ui.control.Button
         EventSelectionLabel     matlab.ui.control.Label
@@ -240,8 +241,11 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             % Scale Subtitle (100, 460, 1000, 30)
             app.SubtitleLabel.Position = [100*scaleX 460*scaleY 1000*scaleX 30*scaleY];
 
-            % Scale Browse Button (450, 370, 300, 50)
-            app.BrowseButton.Position = [450*scaleX 370*scaleY 300*scaleX 50*scaleY];
+            % Scale Browse Button (290, 370, 260, 50)
+            app.BrowseButton.Position = [290*scaleX 370*scaleY 260*scaleX 50*scaleY];
+
+            % Scale Load Button (650, 370, 260, 50)
+            app.LoadButton.Position = [650*scaleX 370*scaleY 260*scaleX 50*scaleY];
 
             % Scale File Info Label (100, 320, 1000, 30)
             app.FileInfoLabel.Position = [100*scaleX 320*scaleY 1000*scaleX 30*scaleY];
@@ -314,14 +318,23 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.SubtitleLabel.FontColor = [0.4 0.5 0.6];
             app.SubtitleLabel.HorizontalAlignment = 'center';
 
-            % Browse Button - centered in panel
+            % Browse Button - left of center
             app.BrowseButton = uibutton(app.UploadPanel, 'push');
-            app.BrowseButton.Position = [450 370 300 50];
+            app.BrowseButton.Position = [290 370 260 50];
             app.BrowseButton.Text = 'Select EEG File';
-            app.BrowseButton.FontSize = 18;
+            app.BrowseButton.FontSize = 16;
             app.BrowseButton.BackgroundColor = [0.3 0.5 0.8];
             app.BrowseButton.FontColor = [1 1 1];
             app.BrowseButton.ButtonPushedFcn = @(btn,event) browseFile(app);
+
+            % Load Previous Analysis Button - right of center
+            app.LoadButton = uibutton(app.UploadPanel, 'push');
+            app.LoadButton.Position = [650 370 260 50];
+            app.LoadButton.Text = 'Load Previous Analysis';
+            app.LoadButton.FontSize = 16;
+            app.LoadButton.BackgroundColor = [0.6 0.4 0.7];
+            app.LoadButton.FontColor = [1 1 1];
+            app.LoadButton.ButtonPushedFcn = @(btn,event) loadPreviousAnalysis(app);
 
             % File info label - centered in panel
             app.FileInfoLabel = uilabel(app.UploadPanel);
@@ -762,6 +775,82 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
             app.UploadPanel.Visible = 'off';
             app.ProcessingPanel.Visible = 'off';
             app.ResultsPanel.Visible = 'on';
+
+            % Auto-save processed data
+            saveProcessedData(app);
+        end
+
+        function saveProcessedData(app)
+            % Save processed EEG data and metrics for future use
+            try
+                % Create filename based on original EEG file
+                [~, basename, ~] = fileparts(app.EEGFile);
+                saveFile = fullfile(pwd, [basename '_RestingState_Processed.mat']);
+
+                % Prepare data to save
+                savedData.EEG = app.EEG;
+                savedData.EEGClean = app.EEGClean;
+                savedData.QualityMetrics = app.QualityMetrics;
+                savedData.ClinicalMetrics = app.ClinicalMetrics;
+                savedData.SegmentData = app.SegmentData;
+                savedData.StartMarkerTypes = app.StartMarkerTypes;
+                savedData.EndMarkerTypes = app.EndMarkerTypes;
+                savedData.SegmentConditions = app.SegmentConditions;
+                savedData.BadChannels = app.BadChannels;
+                savedData.BadChannelLabels = app.BadChannelLabels;
+                savedData.RemovedComponents = app.RemovedComponents;
+                savedData.OriginalFile = app.EEGFile;
+                savedData.ProcessingDate = datetime('now');
+
+                % Save
+                save(saveFile, '-struct', 'savedData', '-v7.3');
+                fprintf('Processed data saved to: %s\n', saveFile);
+            catch ME
+                warning('Failed to auto-save processed data: %s', ME.message);
+            end
+        end
+
+        function loadPreviousAnalysis(app)
+            % Load previously processed data and go directly to results
+            [file, path] = uigetfile({'*_RestingState_Processed.mat', 'Processed Analysis Files (*.mat)'}, ...
+                'Select Previously Processed Analysis');
+
+            if file == 0
+                return;  % User cancelled
+            end
+
+            try
+                % Load saved data
+                fullPath = fullfile(path, file);
+                savedData = load(fullPath);
+
+                % Restore all data
+                app.EEG = savedData.EEG;
+                app.EEGClean = savedData.EEGClean;
+                app.QualityMetrics = savedData.QualityMetrics;
+                app.ClinicalMetrics = savedData.ClinicalMetrics;
+                app.SegmentData = savedData.SegmentData;
+                app.StartMarkerTypes = savedData.StartMarkerTypes;
+                app.EndMarkerTypes = savedData.EndMarkerTypes;
+                app.SegmentConditions = savedData.SegmentConditions;
+                app.BadChannels = savedData.BadChannels;
+                app.BadChannelLabels = savedData.BadChannelLabels;
+                app.RemovedComponents = savedData.RemovedComponents;
+                app.EEGFile = savedData.OriginalFile;
+
+                % Update UI with loaded file info
+                app.FileInfoLabel.Text = sprintf('Loaded: %s (Processed: %s)', ...
+                    savedData.OriginalFile, datestr(savedData.ProcessingDate));
+
+                % Generate visualizations and go directly to results
+                generateResults(app);
+                showResultsScreen(app);
+
+                uialert(app.UIFigure, 'Previous analysis loaded successfully!', 'Load Complete', 'Icon', 'success');
+
+            catch ME
+                uialert(app.UIFigure, ['Failed to load analysis: ' ME.message], 'Load Error', 'Icon', 'error');
+            end
         end
 
         function browseFile(app)
