@@ -268,20 +268,45 @@ function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4, 
 
     % TOPOGRAPHIC MAPS: Theta/Beta and Theta/Alpha Ratios
     % Only generate if we have channel locations and per-channel data
+    fprintf('\n=== TOPOGRAPHIC MAP CHECK ===\n');
+    fprintf('  nargin: %d (need >= 10)\n', nargin);
+    fprintf('  EEG empty: %d\n', isempty(EEG));
+    if ~isempty(EEG)
+        fprintf('  EEG has chanlocs field: %d\n', isfield(EEG, 'chanlocs'));
+        if isfield(EEG, 'chanlocs')
+            fprintf('  Number of chanlocs: %d\n', length(EEG.chanlocs));
+        end
+    end
+    fprintf('  conditions: %s\n', strjoin(conditions, ', '));
+
     if nargin >= 10 && ~isempty(EEG) && isfield(EEG, 'chanlocs') && length(EEG.chanlocs) > 0
+        fprintf('  ✓ Basic checks passed, attempting topomap generation...\n');
         try
             % Find eyes-closed and eyes-open conditions
             eyesClosedIdx = find(contains(lower(conditions), 'closed'));
             eyesOpenIdx = find(contains(lower(conditions), 'open'));
 
+            fprintf('  Found %d closed conditions, %d open conditions\n', ...
+                length(eyesClosedIdx), length(eyesOpenIdx));
+
             if ~isempty(eyesClosedIdx) && ~isempty(eyesOpenIdx)
                 condEC = conditions{eyesClosedIdx(1)};
                 condEO = conditions{eyesOpenIdx(1)};
 
+                fprintf('  Using conditions: %s (closed) and %s (open)\n', condEC, condEO);
+
                 % Get per-channel data
+                fprintf('  Checking for perChannel data in condition "%s"\n', condEC);
+                fprintf('  Has perChannel field: %d\n', isfield(restingMetrics.(condEC), 'perChannel'));
+
                 if isfield(restingMetrics.(condEC), 'perChannel')
+                    fprintf('  ✓ perChannel data found!\n');
+                    perChan = restingMetrics.(condEC).perChannel;
+                    fprintf('  perChannel fields: %s\n', strjoin(fieldnames(perChan), ', '));
+
                     % Compute ratios for each channel
                     numChans = size(restingMetrics.(condEC).perChannel.theta, 1);
+                    fprintf('  Number of channels: %d\n', numChans);
 
                     % Eyes Closed ratios
                     thetaBetaEC = mean(restingMetrics.(condEC).perChannel.theta, 2) ./ ...
@@ -295,17 +320,27 @@ function generateRestingStateVisualizations(restingMetrics, ax1, ax2, ax3, ax4, 
                     thetaAlphaEO = mean(restingMetrics.(condEO).perChannel.theta, 2) ./ ...
                                    mean(restingMetrics.(condEO).perChannel.alpha, 2);
 
+                    fprintf('  Computing topographic maps...\n');
                     % Plot topographic maps
                     plotTopoMap(topoThetaBetaEC, thetaBetaEC, EEG, 'θ/β Ratio - Eyes Closed');
                     plotTopoMap(topoThetaBetaEO, thetaBetaEO, EEG, 'θ/β Ratio - Eyes Open');
                     plotTopoMap(topoThetaAlphaEC, thetaAlphaEC, EEG, 'θ/α Ratio - Eyes Closed');
                     plotTopoMap(topoThetaAlphaEO, thetaAlphaEO, EEG, 'θ/α Ratio - Eyes Open');
+                else
+                    fprintf('  ✗ No perChannel data found - topomaps cannot be generated\n');
+                    fprintf('  Available fields in condition: %s\n', strjoin(fieldnames(restingMetrics.(condEC)), ', '));
                 end
+            else
+                fprintf('  ✗ Could not find both closed and open conditions\n');
             end
         catch ME
-            warning('Topographic map generation failed: %s', ME.message);
+            fprintf('  ✗ Topographic map generation failed: %s\n', ME.message);
+            fprintf('  Error stack:\n%s\n', ME.getReport());
         end
+    else
+        fprintf('  ✗ Basic checks failed - skipping topomaps\n');
     end
+    fprintf('=== END TOPOGRAPHIC MAP CHECK ===\n\n');
 end
 
 function plotTopoMap(ax, data, EEG, titleStr)
