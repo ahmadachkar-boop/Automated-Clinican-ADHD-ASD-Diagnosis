@@ -380,8 +380,8 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
             xy_dist = sqrt(x.^2 + y.^2);
             max_dist = max(xy_dist);
             if max_dist > 0
-                x = x / max_dist * 0.45;  % Scale to 0.45 radius
-                y = y / max_dist * 0.45;
+                x = x / max_dist * 0.495;  % Scale to 0.495 radius (close to head outline at 0.5)
+                y = y / max_dist * 0.495;
             end
 
             fprintf('  X range: [%.2f, %.2f], Y range: [%.2f, %.2f]\n', min(x), max(x), min(y), max(y));
@@ -390,7 +390,7 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
             % Use polar coordinates
             theta = [EEG.chanlocs.theta];
             radius = [EEG.chanlocs.radius];
-            [x, y] = pol2cart(theta * pi/180, radius * 0.45);
+            [x, y] = pol2cart(theta * pi/180, radius * 0.495);
 
         else
             error('No valid channel location coordinates found');
