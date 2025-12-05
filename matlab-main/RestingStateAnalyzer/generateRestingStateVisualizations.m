@@ -417,19 +417,19 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
         plot(ax, [0.5, 0.5+earWidth], [-0.1, -0.1], 'k', 'LineWidth', 2);
         plot(ax, [0.5+earWidth, 0.5+earWidth], [0.1, -0.1], 'k', 'LineWidth', 2);
 
-        % Create interpolated surface
-        xi = linspace(-headRadius, headRadius, 100);
-        yi = linspace(-headRadius, headRadius, 100);
+        % Create interpolated surface with room for overflow
+        overfillRadius = headRadius * 1.2;  % Allow 20% overflow beyond head
+        xi = linspace(-overfillRadius, overfillRadius, 120);
+        yi = linspace(-overfillRadius, overfillRadius, 120);
         [Xi, Yi] = meshgrid(xi, yi);
 
-        % Interpolate data onto grid with extrapolation to fill entire head
-        % Using 'linear' extrapolation allows colors to extend beyond electrode positions
-        F = scatteredInterpolant(x', y', data, 'natural', 'linear');
+        % Interpolate using only real electrode data (no extrapolation)
+        % Natural interpolation within electrode array, NaN outside
+        F = scatteredInterpolant(x', y', data, 'natural', 'none');
         Zi = F(Xi, Yi);
 
-        % Mask outside head outline only
-        mask = sqrt(Xi.^2 + Yi.^2) > headRadius;
-        Zi(mask) = NaN;
+        % Don't mask - let colors overflow naturally based on interpolation
+        % (Areas outside electrode convex hull will be NaN automatically)
 
         % Plot colored surface
         surf(ax, Xi, Yi, zeros(size(Zi)), Zi, 'EdgeColor', 'none', 'FaceAlpha', 0.9);
@@ -451,8 +451,8 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
 
         axis(ax, 'equal');
         axis(ax, 'off');
-        xlim(ax, [-0.65 0.65]);
-        ylim(ax, [-0.65 0.65]);
+        xlim(ax, [-overfillRadius overfillRadius]);
+        ylim(ax, [-overfillRadius overfillRadius]);
         view(ax, 0, 90);
         title(ax, titleStr, 'FontSize', 11, 'FontWeight', 'bold');
         hold(ax, 'off');
