@@ -422,11 +422,12 @@ function plotTopoMap(ax, data, EEG, titleStr, colorLims)
         yi = linspace(-headRadius, headRadius, 100);
         [Xi, Yi] = meshgrid(xi, yi);
 
-        % Interpolate data onto grid
-        F = scatteredInterpolant(x', y', data, 'natural', 'none');
+        % Interpolate data onto grid with extrapolation to fill entire head
+        % Using 'linear' extrapolation allows colors to extend beyond electrode positions
+        F = scatteredInterpolant(x', y', data, 'natural', 'linear');
         Zi = F(Xi, Yi);
 
-        % Mask outside head
+        % Mask outside head outline only
         mask = sqrt(Xi.^2 + Yi.^2) > headRadius;
         Zi(mask) = NaN;
 
