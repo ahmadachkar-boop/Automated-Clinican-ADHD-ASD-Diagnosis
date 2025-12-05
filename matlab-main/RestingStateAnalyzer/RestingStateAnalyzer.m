@@ -843,7 +843,7 @@ classdef RestingStateAnalyzer < matlab.apps.AppBase
                     savedData.OriginalFile, datestr(savedData.ProcessingDate));
 
                 % Generate visualizations and go directly to results
-                generateResults(app);
+                displayResults(app);
                 showResultsScreen(app);
 
                 uialert(app.UIFigure, 'Previous analysis loaded successfully!', 'Load Complete', 'Icon', 'success');
