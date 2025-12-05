@@ -61,6 +61,13 @@ function metrics = computeRestingStateMetrics(segmentData)
             allRelativePowers.(bandNames{b}) = [];
         end
 
+        % Storage for per-channel band powers (for topographic maps)
+        % Format: perChannelPowers.bandName = [nChannels x nSegments]
+        perChannelPowers = struct();
+        for b = 1:length(bandNames)
+            perChannelPowers.(bandNames{b}) = [];
+        end
+
         % Process each segment
         for segIdx = 1:length(condSegments)
             seg = condSegments(segIdx);
@@ -76,8 +83,11 @@ function metrics = computeRestingStateMetrics(segmentData)
 
             % Compute PSD for each channel and average
             psdSum = zeros(nfft/2 + 1, 1);
+            psdPerChannel = zeros(seg.nbchan, nfft/2 + 1);  % Store per-channel PSDs
+
             for ch = 1:seg.nbchan
                 [psd, freqs] = pwelch(detrendedData(ch, :), windowLength, noverlap, nfft, seg.srate);
+                psdPerChannel(ch, :) = psd;
                 psdSum = psdSum + psd;
             end
             psdAvg = psdSum / seg.nbchan;
@@ -86,7 +96,7 @@ function metrics = computeRestingStateMetrics(segmentData)
             analysisRange = freqs >= 1 & freqs <= 50;
             totalPower = trapz(freqs(analysisRange), psdAvg(analysisRange));
 
-            % Compute band powers
+            % Compute band powers (averaged across channels)
             segBandPowers = struct();
 
             for b = 1:length(bandNames)
@@ -101,6 +111,21 @@ function metrics = computeRestingStateMetrics(segmentData)
                 segBandPowers.(bandName) = bandPower;
             end
 
+            % Compute per-channel band powers for topographic maps
+            segPerChannelBandPowers = struct();
+            for b = 1:length(bandNames)
+                bandName = bandNames{b};
+                bandRange = bands.(bandName);
+                freqIdx = freqs >= bandRange(1) & freqs <= bandRange(2);
+
+                % Compute band power for each channel
+                channelBandPowers = zeros(seg.nbchan, 1);
+                for ch = 1:seg.nbchan
+                    channelBandPowers(ch) = trapz(freqs(freqIdx), psdPerChannel(ch, freqIdx));
+                end
+                segPerChannelBandPowers.(bandName) = channelBandPowers;
+            end
+
             % Compute relative powers for this segment
             for b = 1:length(bandNames)
                 bandName = bandNames{b};
@@ -110,6 +135,16 @@ function metrics = computeRestingStateMetrics(segmentData)
                 % Store
                 allAbsolutePowers.(bandName)(end+1) = absolutePower;
                 allRelativePowers.(bandName)(end+1) = relativePower;
+            end
+
+            % Store per-channel band powers for this segment
+            for b = 1:length(bandNames)
+                bandName = bandNames{b};
+                if isempty(perChannelPowers.(bandName))
+                    perChannelPowers.(bandName) = segPerChannelBandPowers.(bandName);
+                else
+                    perChannelPowers.(bandName) = [perChannelPowers.(bandName), segPerChannelBandPowers.(bandName)];
+                end
             end
         end
 
@@ -132,6 +167,18 @@ function metrics = computeRestingStateMetrics(segmentData)
             condMetrics.relative.(bandName).std = std(allRelativePowers.(bandName));
             condMetrics.relative.(bandName).median = median(allRelativePowers.(bandName));
         end
+
+        % Store per-channel band powers (for topographic maps)
+        % Format: perChannel.bandName = [nChannels x nSegments]
+        condMetrics.perChannel = struct();
+        for b = 1:length(bandNames)
+            bandName = bandNames{b};
+            condMetrics.perChannel.(bandName) = perChannelPowers.(bandName);
+        end
+
+        fprintf('  Per-channel data: %d channels x %d segments\n', ...
+            size(perChannelPowers.(bandNames{1}), 1), ...
+            size(perChannelPowers.(bandNames{1}), 2));
 
         % Store in metrics
         metrics.(cond) = condMetrics;
